@@ -1,0 +1,902 @@
+{
+  "user_idea": "Propose NoWag, a unified framework for one-shot shape-preserving compression algorithms that unifies vector quantization and pruning paradigms",
+  "success": true,
+  "iterations": 2,
+  "selected_patterns": {
+    "stability": [
+      "pattern_83",
+      "pattern_100",
+      "pattern_112",
+      "pattern_19",
+      "pattern_77"
+    ],
+    "novelty": [
+      "pattern_88",
+      "pattern_116",
+      "pattern_112",
+      "pattern_75",
+      "pattern_83"
+    ],
+    "domain_distance": [
+      "pattern_77",
+      "pattern_75",
+      "pattern_90",
+      "pattern_19",
+      "pattern_88"
+    ]
+  },
+  "final_story": {
+    "title": "NoWag: Unifying Vector Quantization and Pruning via Generative Trajectory Diffusion for One-Shot Shape-Preserving Compression",
+    "abstract": "We introduce NoWag, a unified framework designed to achieve one-shot shape-preserving compression that seamlessly integrates vector quantization and pruning paradigms. Unlike traditional methods that view compression as a lossy reduction of static values, NoWag reframes the process as a generative structural completion task. Our approach extracts a sparse 'skeletal geometry' using a unified optimization strategy and leverages a trajectory-informed estimation prior to guide a conditional diffusion model. This model 'hallucinates' the high-fidelity weight texture required to preserve the network's functional manifold, effectively replacing iterative retraining with a single-step generative reconstruction. By transforming the compressed model into a generative seed, NoWag maintains the intrinsic shape and performance of neural networks while significantly reducing computational overhead.",
+    "problem_framing": "We reframe the challenge of neural network compression from a lossy reduction of static parameters to a generative structural completion task. Instead of viewing compression merely as discarding information through isolated pruning and quantization, we position it as the extraction of a high-dimensional latent skeleton that implies a dense, high-precision distribution. The problem shifts from minimizing storage error to maximizing the recoverability of the network's functional geometry through generative priors, demanding a framework that treats the compressed structure as a seed for synthesis rather than a degraded artifact.",
+    "gap_pattern": "Existing methods fail to achieve efficient one-shot compression because they treat vector quantization and pruning as competing, destructive operations requiring separate, disjoint optimization pipelines. They rely heavily on post-hoc fine-tuning to recover accuracy, operating under the assumption that structure is static and information is permanently lost. This ignores the inherent generative manifold where a specific sparse structure implies a dense, high-precision distribution, leading to high computational costs and a fundamental inability to preserve the model's functional shape without expensive iterative corrections.",
+    "solution": "NoWag addresses these limitations by introducing a unified framework where structural optimization and functional synthesis co-evolve. We leverage a dual-step optimization mechanism to define a rigid 'skeletal geometry' via simultaneous pruning and quantization, while capturing a 'trajectory prior' from historical training data. This trajectory serves as a conditioning vector for a conditional diffusion model, which 'hallucinates' the high-fidelity weight texture required to preserve functional geometry. This method bridges the gap between aggressive compression and model integrity by replacing the standard weight-retraining phase with a one-step generative reconstruction, transforming the compressed model from a static artifact into a generative seed.",
+    "method_skeleton": "Step 1: Implement a stochastic extragradient-type algorithm using two stepsizes, where a fixed stepsize governs binary mask updates for pruning and a diminishing stepsize refines the quantization codebooks to establish the structural skeleton; Step 2: Develop a two-layer feed-forward nonparametric estimation module where the first layer learns univariate basis functions for weight importance and the second layer learns a single index function for quantization levels, providing the feature conditioning for the generative process; Step 3: Develop a trajectory-informed derivative estimation method that utilizes the history of function queries to construct a conditioning prior for a diffusion model, enabling dynamic virtual updates that synthesize the final high-fidelity weights in a single shot without standard backpropagation.",
+    "innovation_claims": [
+      "Transform the ontology of compressed models from degraded static artifacts into generative seeds by unifying NoWag's structural biases with trajectory-based diffusion priors, enabling recovery of functional geometry from sparse skeletons.",
+      "Reframe weight recovery from iterative error correction to a one-shot structural completion task by utilizing the compression trajectory history as the denoising schedule for generative restoration.",
+      "Unify vector quantization and pruning not as separate reduction steps but as co-dependent components of a latent code generation process, effectively decoupling the 'structural skeleton' from the 'functional texture' to eliminate the need for costly retraining."
+    ],
+    "experiments_plan": "We evaluate NoWag on large-scale vision benchmarks (ImageNet-1K) and language tasks (WikiText-103) using diverse architectures including ResNet-50, ViT-B/16, and GPT-2. We compare against state-of-the-art compression methods such as AMC, DCQ, and ZeroQ, measuring accuracy retention, compression ratio, and FLOPs reduction. Ablation studies will verify the contribution of the trajectory-informed prior versus random initialization and analyze the computational complexity of the one-shot generative reconstruction compared to standard fine-tuning pipelines."
+  },
+  "review_history": [
+    {
+      "pass": false,
+      "avg_score": 6.413333333333241,
+      "reviews": [
+        {
+          "reviewer": "Reviewer A",
+          "role": "Methodology",
+          "score": 7.029999999999894,
+          "feedback": "Main gaps: Limited theoretical justification for the dual-step optimization strategy, Lack of analysis on computational complexity of the proposed method, Potential limitations in scalability to very large models or different architectures. Anchored against 9 papers."
+        },
+        {
+          "reviewer": "Reviewer B",
+          "role": "Novelty",
+          "score": 5.999999999999916,
+          "feedback": "Main gaps: Lack of theoretical foundation for unified approach, Limited evaluation on only two datasets, Insufficient comparison with state-of-the-art methods. Anchored against 9 papers."
+        },
+        {
+          "reviewer": "Reviewer C",
+          "role": "Storyteller",
+          "score": 6.209999999999911,
+          "feedback": "Main gaps: Theoretical foundation: The paper lacks strong theoretical analysis or guarantees for the proposed method., Experimental evaluation: The description of experiments is brief and doesn't provide specific results or comparisons., Technical details: The method description is high-level and lacks specific implementation details or mathematical formulations.. Anchored against 9 papers."
+        }
+      ],
+      "main_issue": "novelty",
+      "suggestions": [
+        "从novelty维度选择创新Pattern",
+        "注入长尾Pattern提升新颖性"
+      ],
+      "audit": {
+        "pattern_id": "pattern_83",
+        "anchors": [
+          {
+            "paper_id": "0qnryNf6XwR",
+            "title": "When are smooth-ReLUs ReLU-like?",
+            "pattern_id": "pattern_83",
+            "score10": 5.567500000000001,
+            "review_count": 4,
+            "dispersion10": 2.205,
+            "weight": 0.50216471526805
+          },
+          {
+            "paper_id": "SWEqzy7IQB",
+            "title": "Accelerated Over-Relaxation Heavy-Ball Method: Achieving Global Accelerated Convergence with Broad Generalization",
+            "pattern_id": "pattern_83",
+            "score10": 6.004,
+            "review_count": 5,
+            "dispersion10": 0.7200000000000006,
+            "weight": 1.0417206216442176
+          },
+          {
+            "paper_id": "ZXaocmXc6d",
+            "title": "From Lazy to Rich: Exact Learning Dynamics in Deep Linear Networks",
+            "pattern_id": "pattern_83",
+            "score10": 6.265,
+            "review_count": 4,
+            "dispersion10": 0.9000000000000008,
+            "weight": 0.8470725854916313
+          },
+          {
+            "paper_id": "GTUoTJXPBf",
+            "title": "Noisy Interpolation Learning with Shallow Univariate ReLU Networks",
+            "pattern_id": "pattern_83",
+            "score10": 6.715,
+            "review_count": 4,
+            "dispersion10": 0.18000000000000016,
+            "weight": 1.3639304342661864
+          },
+          {
+            "paper_id": "QC10RmRbZy9",
+            "title": "Loss Landscapes are All You Need: Neural Network Generalization Can Be Explained Without the Implicit Bias of Gradient Descent",
+            "pattern_id": "pattern_83",
+            "score10": 7.35625,
+            "review_count": 4,
+            "dispersion10": 2.6100000000000003,
+            "weight": 0.445827676574543
+          },
+          {
+            "paper_id": "BDjGGZk9yz",
+            "title": "Supervised Random Feature Regression via Projection Pursuit",
+            "pattern_id": "pattern_83",
+            "score10": 4.735,
+            "review_count": 4,
+            "dispersion10": 0.9449999999999998,
+            "weight": 0.8274745051075066
+          },
+          {
+            "paper_id": "n1bLgxHW6jW",
+            "title": "Zeroth-Order Optimization with Trajectory-Informed Derivative Estimation",
+            "pattern_id": "pattern_83",
+            "score10": 6.9399999999999995,
+            "review_count": 4,
+            "dispersion10": 1.3499999999999992,
+            "weight": 0.6848671967804685
+          },
+          {
+            "paper_id": "3v2DIO9oVl",
+            "title": "Generalization error bounds for Neural Networks with ReLU activation",
+            "pattern_id": "pattern_83",
+            "score10": 6.436,
+            "review_count": 5,
+            "dispersion10": 2.8799999999999994,
+            "weight": 0.4617936776360967
+          },
+          {
+            "paper_id": "2mvALOAWaxY",
+            "title": "Lower Bounds on the Depth of Integral ReLU Neural Networks via Lattice Polytopes",
+            "pattern_id": "pattern_83",
+            "score10": 7.444,
+            "review_count": 5,
+            "dispersion10": 1.5300000000000002,
+            "weight": 0.7082053238055552
+          }
+        ],
+        "role_details": {
+          "Methodology": {
+            "comparisons": [
+              {
+                "paper_id": "0qnryNf6XwR",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's unified compression framework offers more practical innovation than analyzing smooth-ReLU properties. score10: 5.6"
+              },
+              {
+                "paper_id": "SWEqzy7IQB",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's specialized compression methodology is more novel than general optimization acceleration. score10: 6.0"
+              },
+              {
+                "paper_id": "ZXaocmXc6d",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's practical compression approach is more impactful than theoretical learning dynamics. score10: 6.3"
+              },
+              {
+                "paper_id": "GTUoTJXPBf",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's comprehensive compression framework is more innovative than noisy interpolation learning. score10: 6.7"
+              },
+              {
+                "paper_id": "QC10RmRbZy9",
+                "judgement": "worse",
+                "confidence": 0.7,
+                "rationale": "NoWag lacks the theoretical depth of generalization analysis in loss landscapes. score10: 7.4"
+              },
+              {
+                "paper_id": "BDjGGZk9yz",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's unified compression methodology is more comprehensive than random feature regression. score10: 4.7"
+              },
+              {
+                "paper_id": "n1bLgxHW6jW",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag applies trajectory-informed estimation more innovatively to compression problems. score10: 6.9"
+              },
+              {
+                "paper_id": "3v2DIO9oVl",
+                "judgement": "worse",
+                "confidence": 0.6,
+                "rationale": "NoWag lacks the theoretical rigor of generalization error bounds analysis. score10: 6.4"
+              },
+              {
+                "paper_id": "2mvALOAWaxY",
+                "judgement": "worse",
+                "confidence": 0.7,
+                "rationale": "NoWag's applied methodology lacks the theoretical depth of lower bounds analysis. score10: 7.4"
+              }
+            ],
+            "main_gaps": [
+              "Limited theoretical justification for the dual-step optimization strategy",
+              "Lack of analysis on computational complexity of the proposed method",
+              "Potential limitations in scalability to very large models or different architectures"
+            ],
+            "score": 7.029999999999894,
+            "loss": 0.23680737943008545,
+            "avg_confidence": 0.6444444444444444,
+            "monotonic_violations": 1
+          },
+          "Novelty": {
+            "comparisons": [
+              {
+                "paper_id": "0qnryNf6XwR",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's unified compression framework offers more practical novelty than analyzing smooth-ReLU behavior, score10: 5.6"
+              },
+              {
+                "paper_id": "SWEqzy7IQB",
+                "judgement": "worse",
+                "confidence": 0.6,
+                "rationale": "Anchor's accelerated convergence method has more fundamental optimization novelty than NoWag's dual-step approach, score10: 6.0"
+              },
+              {
+                "paper_id": "ZXaocmXc6d",
+                "judgement": "tie",
+                "confidence": 0.5,
+                "rationale": "Both papers offer comparable novelty in their respective domains of compression and learning dynamics, score10: 6.3"
+              },
+              {
+                "paper_id": "GTUoTJXPBf",
+                "judgement": "worse",
+                "confidence": 0.6,
+                "rationale": "Anchor's theoretical analysis of noisy interpolation provides more novel insights than NoWag's practical framework, score10: 6.7"
+              },
+              {
+                "paper_id": "QC10RmRbZy9",
+                "judgement": "worse",
+                "confidence": 0.7,
+                "rationale": "Anchor's new perspective on generalization has higher conceptual novelty than NoWag's unified compression, score10: 7.4"
+              },
+              {
+                "paper_id": "BDjGGZk9yz",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's unified approach to compression is more novel than anchor's supervised regression method, score10: 4.7"
+              },
+              {
+                "paper_id": "n1bLgxHW6jW",
+                "judgement": "tie",
+                "confidence": 0.5,
+                "rationale": "Both papers use trajectory-informed estimation, with NoWag applying it to compression, score10: 6.9"
+              },
+              {
+                "paper_id": "3v2DIO9oVl",
+                "judgement": "tie",
+                "confidence": 0.5,
+                "rationale": "Both papers offer comparable novelty in their respective domains of compression and generalization, score10: 6.4"
+              },
+              {
+                "paper_id": "2mvALOAWaxY",
+                "judgement": "worse",
+                "confidence": 0.7,
+                "rationale": "Anchor's theoretical lower bounds on network depth have higher novelty than NoWag's framework, score10: 7.4"
+              }
+            ],
+            "main_gaps": [
+              "Lack of theoretical foundation for unified approach",
+              "Limited evaluation on only two datasets",
+              "Insufficient comparison with state-of-the-art methods",
+              "Missing complexity analysis",
+              "No hyperparameter sensitivity analysis"
+            ],
+            "score": 5.999999999999916,
+            "loss": 0.1578830207622396,
+            "avg_confidence": 0.6111111111111112,
+            "monotonic_violations": 2
+          },
+          "Storyteller": {
+            "comparisons": [
+              {
+                "paper_id": "0qnryNf6XwR",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's practical compression approach is more impactful than analyzing smooth-ReLUs. score10: 5.6"
+              },
+              {
+                "paper_id": "SWEqzy7IQB",
+                "judgement": "tie",
+                "confidence": 0.6,
+                "rationale": "Both papers introduce novel optimization techniques with different applications. score10: 6.0"
+              },
+              {
+                "paper_id": "ZXaocmXc6d",
+                "judgement": "tie",
+                "confidence": 0.6,
+                "rationale": "Both papers offer novel insights into neural network optimization. score10: 6.3"
+              },
+              {
+                "paper_id": "GTUoTJXPBf",
+                "judgement": "tie",
+                "confidence": 0.6,
+                "rationale": "Both papers address specific aspects of neural network learning. score10: 6.7"
+              },
+              {
+                "paper_id": "QC10RmRbZy9",
+                "judgement": "worse",
+                "confidence": 0.7,
+                "rationale": "NoWag lacks the theoretical depth of this generalization analysis. score10: 7.4"
+              },
+              {
+                "paper_id": "BDjGGZk9yz",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's unified compression framework is more innovative than this regression technique. score10: 4.7"
+              },
+              {
+                "paper_id": "n1bLgxHW6jW",
+                "judgement": "worse",
+                "confidence": 0.7,
+                "rationale": "NoWag applies trajectory-informed estimation rather than developing the technique itself. score10: 6.9"
+              },
+              {
+                "paper_id": "3v2DIO9oVl",
+                "judgement": "worse",
+                "confidence": 0.7,
+                "rationale": "NoWag lacks the theoretical rigor of these generalization bounds. score10: 6.4"
+              },
+              {
+                "paper_id": "2mvALOAWaxY",
+                "judgement": "worse",
+                "confidence": 0.7,
+                "rationale": "NoWag doesn't match the theoretical contribution of these depth bounds. score10: 7.4"
+              }
+            ],
+            "main_gaps": [
+              "Theoretical foundation: The paper lacks strong theoretical analysis or guarantees for the proposed method.",
+              "Experimental evaluation: The description of experiments is brief and doesn't provide specific results or comparisons.",
+              "Technical details: The method description is high-level and lacks specific implementation details or mathematical formulations."
+            ],
+            "score": 6.209999999999911,
+            "loss": 0.080170118857987,
+            "avg_confidence": 0.6666666666666666,
+            "monotonic_violations": 1
+          }
+        },
+        "anchors_rounds": [
+          [
+            {
+              "paper_id": "0qnryNf6XwR",
+              "title": "When are smooth-ReLUs ReLU-like?",
+              "pattern_id": "pattern_83",
+              "score10": 5.567500000000001,
+              "review_count": 4,
+              "dispersion10": 2.205,
+              "weight": 0.50216471526805
+            },
+            {
+              "paper_id": "SWEqzy7IQB",
+              "title": "Accelerated Over-Relaxation Heavy-Ball Method: Achieving Global Accelerated Convergence with Broad Generalization",
+              "pattern_id": "pattern_83",
+              "score10": 6.004,
+              "review_count": 5,
+              "dispersion10": 0.7200000000000006,
+              "weight": 1.0417206216442176
+            },
+            {
+              "paper_id": "ZXaocmXc6d",
+              "title": "From Lazy to Rich: Exact Learning Dynamics in Deep Linear Networks",
+              "pattern_id": "pattern_83",
+              "score10": 6.265,
+              "review_count": 4,
+              "dispersion10": 0.9000000000000008,
+              "weight": 0.8470725854916313
+            },
+            {
+              "paper_id": "GTUoTJXPBf",
+              "title": "Noisy Interpolation Learning with Shallow Univariate ReLU Networks",
+              "pattern_id": "pattern_83",
+              "score10": 6.715,
+              "review_count": 4,
+              "dispersion10": 0.18000000000000016,
+              "weight": 1.3639304342661864
+            },
+            {
+              "paper_id": "QC10RmRbZy9",
+              "title": "Loss Landscapes are All You Need: Neural Network Generalization Can Be Explained Without the Implicit Bias of Gradient Descent",
+              "pattern_id": "pattern_83",
+              "score10": 7.35625,
+              "review_count": 4,
+              "dispersion10": 2.6100000000000003,
+              "weight": 0.445827676574543
+            },
+            {
+              "paper_id": "BDjGGZk9yz",
+              "title": "Supervised Random Feature Regression via Projection Pursuit",
+              "pattern_id": "pattern_83",
+              "score10": 4.735,
+              "review_count": 4,
+              "dispersion10": 0.9449999999999998,
+              "weight": 0.8274745051075066
+            },
+            {
+              "paper_id": "n1bLgxHW6jW",
+              "title": "Zeroth-Order Optimization with Trajectory-Informed Derivative Estimation",
+              "pattern_id": "pattern_83",
+              "score10": 6.9399999999999995,
+              "review_count": 4,
+              "dispersion10": 1.3499999999999992,
+              "weight": 0.6848671967804685
+            }
+          ],
+          [
+            {
+              "paper_id": "3v2DIO9oVl",
+              "title": "Generalization error bounds for Neural Networks with ReLU activation",
+              "pattern_id": "pattern_83",
+              "score10": 6.436,
+              "review_count": 5,
+              "dispersion10": 2.8799999999999994,
+              "weight": 0.4617936776360967
+            },
+            {
+              "paper_id": "2mvALOAWaxY",
+              "title": "Lower Bounds on the Depth of Integral ReLU Neural Networks via Lattice Polytopes",
+              "pattern_id": "pattern_83",
+              "score10": 7.444,
+              "review_count": 5,
+              "dispersion10": 1.5300000000000002,
+              "weight": 0.7082053238055552
+            }
+          ]
+        ],
+        "pass": {
+          "mode": "two_of_three_q75_and_avg_ge_q50",
+          "used_distribution": "pattern",
+          "pattern_paper_count": 237,
+          "q50": 6.265,
+          "q75": 6.715,
+          "count_roles_ge_q75": 1,
+          "roles_ge_q75": {
+            "Methodology": true,
+            "Novelty": false,
+            "Storyteller": false
+          },
+          "avg_ge_q50": true,
+          "avg_score": 6.413333333333241
+        }
+      }
+    },
+    {
+      "pass": true,
+      "avg_score": 7.20999999999989,
+      "reviews": [
+        {
+          "reviewer": "Reviewer A",
+          "role": "Methodology",
+          "score": 7.369999999999886,
+          "feedback": "Main gaps: Complex unified approach may be difficult to reproduce and implement, One-shot generative reconstruction may not match iterative fine-tuning performance, Scalability to extremely large models is not adequately addressed. Anchored against 9 papers."
+        },
+        {
+          "reviewer": "Reviewer B",
+          "role": "Novelty",
+          "score": 7.67999999999988,
+          "feedback": "Main gaps: Unclear effectiveness of one-shot compression compared to iterative methods, Lack of detailed analysis of computational overhead for diffusion-based weight reconstruction, No discussion of scalability to very large models where diffusion might be prohibitively expensive. Anchored against 9 papers."
+        },
+        {
+          "reviewer": "Reviewer C",
+          "role": "Storyteller",
+          "score": 6.579999999999903,
+          "feedback": "Main gaps: Lack of detailed explanation of trajectory-informed derivative estimation method, Limited discussion on computational complexity compared to traditional approaches, Missing theoretical justification for viewing compressed models as generative seeds. Anchored against 9 papers."
+        }
+      ],
+      "main_issue": "domain_distance",
+      "suggestions": [
+        "从domain_distance维度选择跨域Pattern",
+        "引入不同视角优化叙事"
+      ],
+      "audit": {
+        "pattern_id": "pattern_88",
+        "anchors": [
+          {
+            "paper_id": "raUnLe0Z04",
+            "title": "Lossy Compression with Pretrained Diffusion Models",
+            "pattern_id": "pattern_88",
+            "score10": 5.86,
+            "review_count": 5,
+            "dispersion10": 1.08,
+            "weight": 0.8614228217442572
+          },
+          {
+            "paper_id": "bsnRUkVn63",
+            "title": "Test-time Adaptation for Image Compression with Distribution Regularization",
+            "pattern_id": "pattern_88",
+            "score10": 5.98,
+            "review_count": 6,
+            "dispersion10": 0.7200000000000006,
+            "weight": 1.1313431099158793
+          },
+          {
+            "paper_id": "8ishA3LxN8",
+            "title": "Finite Scalar Quantization: VQ-VAE Made Simple",
+            "pattern_id": "pattern_88",
+            "score10": 6.183999999999999,
+            "review_count": 5,
+            "dispersion10": 0.9000000000000008,
+            "weight": 0.9430312995937128
+          },
+          {
+            "paper_id": "Cy5v64DqEF",
+            "title": "Idempotence and Perceptual Image Compression",
+            "pattern_id": "pattern_88",
+            "score10": 6.544,
+            "review_count": 5,
+            "dispersion10": 0.9000000000000008,
+            "weight": 0.9430312995937128
+          },
+          {
+            "paper_id": "OOWLRfAI_V_",
+            "title": "Quantized Compressed Sensing with Score-Based Generative Models",
+            "pattern_id": "pattern_88",
+            "score10": 7.165000000000001,
+            "review_count": 4,
+            "dispersion10": 1.8000000000000007,
+            "weight": 0.57479925444075
+          },
+          {
+            "paper_id": "X8-VWbONvr",
+            "title": "Lossy Image Compression with Conditional Diffusion Models",
+            "pattern_id": "pattern_88",
+            "score10": 5.927500000000001,
+            "review_count": 6,
+            "dispersion10": 2.34,
+            "weight": 0.5826078290584771
+          },
+          {
+            "paper_id": "jBPvRLKP_n_",
+            "title": "Lossy Compression with Gaussian Diffusion",
+            "pattern_id": "pattern_88",
+            "score10": 5.78125,
+            "review_count": 4,
+            "dispersion10": 2.43,
+            "weight": 0.4692238811761225
+          },
+          {
+            "paper_id": "CxXGvKRDnL",
+            "title": "Progressive Compression with Universally Quantized Diffusion Models",
+            "pattern_id": "pattern_88",
+            "score10": 6.724,
+            "review_count": 5,
+            "dispersion10": 0.18000000000000016,
+            "weight": 1.5184402281593683
+          },
+          {
+            "paper_id": "rLwC0_MG-4w",
+            "title": "Denoising Diffusion Error Correction Codes",
+            "pattern_id": "pattern_88",
+            "score10": 7.2775,
+            "review_count": 4,
+            "dispersion10": 2.250000000000001,
+            "weight": 0.4952116653643384
+          }
+        ],
+        "role_details": {
+          "Methodology": {
+            "comparisons": [
+              {
+                "paper_id": "raUnLe0Z04",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's unified framework for neural network compression is more innovative than standard diffusion compression, score10: 5.9"
+              },
+              {
+                "paper_id": "bsnRUkVn63",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's integration of pruning and quantization with diffusion models is more methodologically advanced, score10: 6.0"
+              },
+              {
+                "paper_id": "8ishA3LxN8",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's multi-component approach is more complex than simplified VQ-VAE quantization, score10: 6.2"
+              },
+              {
+                "paper_id": "Cy5v64DqEF",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's generative approach to neural network compression is more innovative than idempotence-based methods, score10: 6.5"
+              },
+              {
+                "paper_id": "OOWLRfAI_V_",
+                "judgement": "tie",
+                "confidence": 0.5,
+                "rationale": "Both papers use generative models innovatively but for different compression domains, score10: 7.2"
+              },
+              {
+                "paper_id": "X8-VWbONvr",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's unified approach to pruning and quantization is more comprehensive than conditional diffusion alone, score10: 5.9"
+              },
+              {
+                "paper_id": "jBPvRLKP_n_",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's multi-component methodology is more advanced than simple Gaussian diffusion compression, score10: 5.8"
+              },
+              {
+                "paper_id": "CxXGvKRDnL",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's approach to neural network compression is more specialized than universal quantized diffusion, score10: 6.7"
+              },
+              {
+                "paper_id": "rLwC0_MG-4w",
+                "judgement": "tie",
+                "confidence": 0.5,
+                "rationale": "Both papers innovatively apply diffusion models to different compression problems, score10: 7.3"
+              }
+            ],
+            "main_gaps": [
+              "Complex unified approach may be difficult to reproduce and implement",
+              "One-shot generative reconstruction may not match iterative fine-tuning performance",
+              "Scalability to extremely large models is not adequately addressed"
+            ],
+            "score": 7.369999999999886,
+            "loss": 0.024001682784228717,
+            "avg_confidence": 0.6111111111111112,
+            "monotonic_violations": 0
+          },
+          "Novelty": {
+            "comparisons": [
+              {
+                "paper_id": "raUnLe0Z04",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's novel neural network compression with unified VQ and pruning is more innovative than standard diffusion compression. score10: 5.9"
+              },
+              {
+                "paper_id": "bsnRUkVn63",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's generative approach to neural network compression is more novel than test-time adaptation for image compression. score10: 6.0"
+              },
+              {
+                "paper_id": "8ishA3LxN8",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's unified framework combining VQ, pruning, and diffusion is more innovative than simplifying VQ-VAE. score10: 6.2"
+              },
+              {
+                "paper_id": "Cy5v64DqEF",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's generative structural completion for neural networks is more novel than idempotence in image compression. score10: 6.5"
+              },
+              {
+                "paper_id": "OOWLRfAI_V_",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's neural network compression with unified VQ and pruning is more innovative than score-based compressed sensing. score10: 7.2"
+              },
+              {
+                "paper_id": "X8-VWbONvr",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's neural network compression with unified VQ and pruning is more innovative than conditional diffusion for images. score10: 5.9"
+              },
+              {
+                "paper_id": "jBPvRLKP_n_",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's neural network compression with unified VQ and pruning is more innovative than Gaussian diffusion compression. score10: 5.8"
+              },
+              {
+                "paper_id": "CxXGvKRDnL",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's generative approach to neural network compression is more novel than progressive compression with quantized diffusion. score10: 6.7"
+              },
+              {
+                "paper_id": "rLwC0_MG-4w",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's neural network compression with unified VQ and pruning is more innovative than diffusion for error correction. score10: 7.3"
+              }
+            ],
+            "main_gaps": [
+              "Unclear effectiveness of one-shot compression compared to iterative methods",
+              "Lack of detailed analysis of computational overhead for diffusion-based weight reconstruction",
+              "No discussion of scalability to very large models where diffusion might be prohibitively expensive"
+            ],
+            "score": 7.67999999999988,
+            "loss": 0.050581363766469274,
+            "avg_confidence": 0.6444444444444444,
+            "monotonic_violations": 0
+          },
+          "Storyteller": {
+            "comparisons": [
+              {
+                "paper_id": "raUnLe0Z04",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's generative approach to neural network compression is more innovative than standard diffusion-based image compression, score10: 5.9"
+              },
+              {
+                "paper_id": "bsnRUkVn63",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's unified framework for neural network compression is more comprehensive than test-time adaptation for image compression, score10: 6.0"
+              },
+              {
+                "paper_id": "8ishA3LxN8",
+                "judgement": "better",
+                "confidence": 0.6,
+                "rationale": "NoWag's generative approach to compression is more innovative than simplifying VQ-VAE for quantization, score10: 6.2"
+              },
+              {
+                "paper_id": "Cy5v64DqEF",
+                "judgement": "tie",
+                "confidence": 0.5,
+                "rationale": "Different domains make direct comparison difficult despite similar scores, score10: 6.5"
+              },
+              {
+                "paper_id": "OOWLRfAI_V_",
+                "judgement": "worse",
+                "confidence": 0.6,
+                "rationale": "Anchor's higher score suggests more impactful use of generative models for compressed sensing, score10: 7.2"
+              },
+              {
+                "paper_id": "X8-VWbONvr",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's application to neural network compression is more novel than conditional diffusion for image compression, score10: 5.9"
+              },
+              {
+                "paper_id": "jBPvRLKP_n_",
+                "judgement": "better",
+                "confidence": 0.7,
+                "rationale": "NoWag's specific application to neural network compression is more innovative than general Gaussian diffusion for compression, score10: 5.8"
+              },
+              {
+                "paper_id": "CxXGvKRDnL",
+                "judgement": "worse",
+                "confidence": 0.6,
+                "rationale": "Anchor's higher score suggests more impactful approach to progressive compression with diffusion models, score10: 6.7"
+              },
+              {
+                "paper_id": "rLwC0_MG-4w",
+                "judgement": "worse",
+                "confidence": 0.7,
+                "rationale": "Anchor's significantly higher score indicates more impactful application of diffusion models, score10: 7.3"
+              }
+            ],
+            "main_gaps": [
+              "Lack of detailed explanation of trajectory-informed derivative estimation method",
+              "Limited discussion on computational complexity compared to traditional approaches",
+              "Missing theoretical justification for viewing compressed models as generative seeds",
+              "Lack of details on handling different neural network architectures",
+              "Missing comparison with other diffusion-based compression methods"
+            ],
+            "score": 6.579999999999903,
+            "loss": 0.1604636916878284,
+            "avg_confidence": 0.6444444444444444,
+            "monotonic_violations": 0
+          }
+        },
+        "anchors_rounds": [
+          [
+            {
+              "paper_id": "raUnLe0Z04",
+              "title": "Lossy Compression with Pretrained Diffusion Models",
+              "pattern_id": "pattern_88",
+              "score10": 5.86,
+              "review_count": 5,
+              "dispersion10": 1.08,
+              "weight": 0.8614228217442572
+            },
+            {
+              "paper_id": "bsnRUkVn63",
+              "title": "Test-time Adaptation for Image Compression with Distribution Regularization",
+              "pattern_id": "pattern_88",
+              "score10": 5.98,
+              "review_count": 6,
+              "dispersion10": 0.7200000000000006,
+              "weight": 1.1313431099158793
+            },
+            {
+              "paper_id": "8ishA3LxN8",
+              "title": "Finite Scalar Quantization: VQ-VAE Made Simple",
+              "pattern_id": "pattern_88",
+              "score10": 6.183999999999999,
+              "review_count": 5,
+              "dispersion10": 0.9000000000000008,
+              "weight": 0.9430312995937128
+            },
+            {
+              "paper_id": "Cy5v64DqEF",
+              "title": "Idempotence and Perceptual Image Compression",
+              "pattern_id": "pattern_88",
+              "score10": 6.544,
+              "review_count": 5,
+              "dispersion10": 0.9000000000000008,
+              "weight": 0.9430312995937128
+            },
+            {
+              "paper_id": "OOWLRfAI_V_",
+              "title": "Quantized Compressed Sensing with Score-Based Generative Models",
+              "pattern_id": "pattern_88",
+              "score10": 7.165000000000001,
+              "review_count": 4,
+              "dispersion10": 1.8000000000000007,
+              "weight": 0.57479925444075
+            },
+            {
+              "paper_id": "X8-VWbONvr",
+              "title": "Lossy Image Compression with Conditional Diffusion Models",
+              "pattern_id": "pattern_88",
+              "score10": 5.927500000000001,
+              "review_count": 6,
+              "dispersion10": 2.34,
+              "weight": 0.5826078290584771
+            },
+            {
+              "paper_id": "jBPvRLKP_n_",
+              "title": "Lossy Compression with Gaussian Diffusion",
+              "pattern_id": "pattern_88",
+              "score10": 5.78125,
+              "review_count": 4,
+              "dispersion10": 2.43,
+              "weight": 0.4692238811761225
+            }
+          ],
+          [
+            {
+              "paper_id": "CxXGvKRDnL",
+              "title": "Progressive Compression with Universally Quantized Diffusion Models",
+              "pattern_id": "pattern_88",
+              "score10": 6.724,
+              "review_count": 5,
+              "dispersion10": 0.18000000000000016,
+              "weight": 1.5184402281593683
+            },
+            {
+              "paper_id": "rLwC0_MG-4w",
+              "title": "Denoising Diffusion Error Correction Codes",
+              "pattern_id": "pattern_88",
+              "score10": 7.2775,
+              "review_count": 4,
+              "dispersion10": 2.250000000000001,
+              "weight": 0.4952116653643384
+            }
+          ]
+        ],
+        "pass": {
+          "mode": "two_of_three_q75_and_avg_ge_q50",
+          "used_distribution": "pattern",
+          "pattern_paper_count": 24,
+          "q50": 6.183999999999999,
+          "q75": 6.544,
+          "count_roles_ge_q75": 3,
+          "roles_ge_q75": {
+            "Methodology": true,
+            "Novelty": true,
+            "Storyteller": true
+          },
+          "avg_ge_q50": true,
+          "avg_score": 7.20999999999989
+        }
+      }
+    }
+  ],
+  "review_summary": {
+    "total_reviews": 2,
+    "final_score": 7.20999999999989
+  },
+  "refinement_summary": {
+    "total_refinements": 1,
+    "issues_addressed": [
+      "novelty"
+    ]
+  },
+  "verification_summary": {
+    "collision_detected": false,
+    "max_similarity": 0.0
+  }
+}
