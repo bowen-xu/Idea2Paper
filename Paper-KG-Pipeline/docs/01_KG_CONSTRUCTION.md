@@ -1,22 +1,22 @@
-# 知识图谱构建文档
+# Knowledge Graph Construction Documentation
 
-## 📋 概述
+## 📋 Overview
 
-本文档详细说明了 Idea2Paper 项目中知识图谱的构建过程,包括数据源、节点、边的定义、构建流程、参数配置和运行方式。
+This document provides a detailed description of the knowledge graph construction process in the Idea2Paper project, including data sources, node and edge definitions, construction workflow, parameter configuration, and execution methods.
 
 ---
 
-## 1. 数据源
+## 1. Data Sources
 
-### 1.1 输入文件
+### 1.1 Input Files
 
-| 文件 | 路径 | 说明 | 数据量 |
-|------|------|------|--------|
-| **assignments.jsonl** | `data/ICLR_25/assignments.jsonl` | Paper到Pattern的分配关系 | 8,285条 |
-| **cluster_library_sorted.jsonl** | `data/ICLR_25/cluster_library_sorted.jsonl` | Pattern Cluster信息 | 124条 |
-| **iclr_patterns_full.jsonl** | `data/ICLR_25/iclr_patterns_full.jsonl` | Pattern详细属性(英文完整版) | 8,310条 |
+| File | Path | Description | Data Volume |
+|------|------|-------------|-------------|
+| **assignments.jsonl** | `data/ICLR_25/assignments.jsonl` | Paper to Pattern assignment relationships | 8,285 entries |
+| **cluster_library_sorted.jsonl** | `data/ICLR_25/cluster_library_sorted.jsonl` | Pattern Cluster information | 124 entries |
+| **iclr_patterns_full.jsonl** | `data/ICLR_25/iclr_patterns_full.jsonl` | Pattern detailed attributes (English full version) | 8,310 entries |
 
-### 1.2 数据结构示例
+### 1.2 Data Structure Examples
 
 **assignments.jsonl**:
 ```json
@@ -48,22 +48,22 @@
 
 ---
 
-## 2. 节点定义
+## 2. Node Definitions
 
-### 2.1 节点类型概览
+### 2.1 Node Type Overview
 
-| 节点类型 | 数量 | 主要数据源 | 作用 |
-|---------|------|-----------|------|
-| **Idea** | 8,284 | `iclr_patterns_full.jsonl` | 论文的核心创新点 |
-| **Pattern** | 124 | `cluster_library_sorted.jsonl` | 写作套路/方法模板 |
-| **Domain** | 98 | `assignments.jsonl`(聚合) | 研究领域 |
-| **Paper** | 8,285 | `assignments.jsonl` + pattern details | 具体论文 |
+| Node Type | Count | Primary Data Source | Purpose |
+|-----------|-------|---------------------|---------|
+| **Idea** | 8,284 | `iclr_patterns_full.jsonl` | Core innovations of papers |
+| **Pattern** | 124 | `cluster_library_sorted.jsonl` | Writing patterns/method templates |
+| **Domain** | 98 | `assignments.jsonl`(aggregated) | Research domains |
+| **Paper** | 8,285 | `assignments.jsonl` + pattern details | Specific papers |
 
-### 2.2 Pattern节点
+### 2.2 Pattern Nodes
 
-**数据源**: `cluster_library_sorted.jsonl` + LLM增强
+**Data Source**: `cluster_library_sorted.jsonl` + LLM enhancement
 
-**关键字段**:
+**Key Fields**:
 ```json
 {
   "pattern_id": "pattern_24",
@@ -82,10 +82,10 @@
   },
 
   "llm_enhanced_summary": {
-    "representative_ideas": "归纳性总结(单句)...",
-    "common_problems": "归纳性总结(单句)...",
-    "solution_approaches": "归纳性总结(单句)...",
-    "story": "归纳性总结(单句)..."
+    "representative_ideas": "Inductive summary (single sentence)...",
+    "common_problems": "Inductive summary (single sentence)...",
+    "solution_approaches": "Inductive summary (single sentence)...",
+    "story": "Inductive summary (single sentence)..."
   },
 
   "llm_enhanced": true,
@@ -93,12 +93,12 @@
 }
 ```
 
-**构建逻辑**:
+**Construction Logic**:
 ```python
 def _build_pattern_nodes(clusters):
     for cluster in clusters:
         if cluster_id == -1:
-            continue  # 跳过未分配
+            continue  # Skip unassigned
 
         pattern_node = {
             'pattern_id': f"pattern_{cluster_id}",
@@ -109,19 +109,19 @@ def _build_pattern_nodes(clusters):
         }
 ```
 
-### 2.3 Idea节点
+### 2.3 Idea Nodes
 
-**数据源**: `iclr_patterns_full.jsonl`
+**Data Source**: `iclr_patterns_full.jsonl`
 
-**关键字段**:
+**Key Fields**:
 ```json
 {
   "idea_id": "idea_0",
-  "description": "通过分析标签错误对群体差异指标的影响...",
-  "base_problem": "在群体差异指标评估中...",
-  "solution_pattern": "提出一种方法估计...",
-  "story": "将标签错误问题从模型性能影响扩展到...",
-  "application": "高风险决策系统的公平性审计...",
+  "description": "By analyzing the impact of label errors on group disparity metrics...",
+  "base_problem": "In the evaluation of group disparity metrics...",
+  "solution_pattern": "Propose a method to estimate...",
+  "story": "Extend the label error problem from model performance impact to...",
+  "application": "Fairness auditing in high-risk decision systems...",
   "domain": "Fairness & Accountability",
   "sub_domains": ["Label Noise", ...],
   "source_paper_ids": ["RUzSobdYy0V"],
@@ -129,9 +129,9 @@ def _build_pattern_nodes(clusters):
 }
 ```
 
-**去重策略**: MD5 hash前16位
+**Deduplication Strategy**: First 16 characters of MD5 hash
 
-**构建逻辑**:
+**Construction Logic**:
 ```python
 def _build_idea_nodes(pattern_details):
     for paper_id, details in pattern_details.items():
@@ -146,11 +146,11 @@ def _build_idea_nodes(pattern_details):
             }
 ```
 
-### 2.4 Domain节点
+### 2.4 Domain Nodes
 
-**数据源**: `assignments.jsonl`(聚合)
+**Data Source**: `assignments.jsonl`(aggregated)
 
-**关键字段**:
+**Key Fields**:
 ```json
 {
   "domain_id": "domain_0",
@@ -162,7 +162,7 @@ def _build_idea_nodes(pattern_details):
 }
 ```
 
-**构建逻辑**:
+**Construction Logic**:
 ```python
 def _build_domain_nodes(assignments):
     domain_stats = defaultdict(lambda: {
@@ -177,11 +177,11 @@ def _build_domain_nodes(assignments):
         domain_stats[domain]['sub_domains'].update(assignment['sub_domains'])
 ```
 
-### 2.5 Paper节点
+### 2.5 Paper Nodes
 
-**数据源**: `assignments.jsonl` + `iclr_patterns_full.jsonl`
+**Data Source**: `assignments.jsonl` + `iclr_patterns_full.jsonl`
 
-**关键字段**:
+**Key Fields**:
 ```json
 {
   "paper_id": "RUzSobdYy0V",
@@ -191,7 +191,7 @@ def _build_domain_nodes(assignments):
   "cluster_prob": 0.384,
   "domain": "Fairness & Accountability",
   "sub_domains": [...],
-  "idea": "核心想法描述(字符串)",
+  "idea": "Core idea description (string)",
   "pattern_details": {...},
   "pattern_id": "pattern_9",
   "idea_id": "idea_0",
@@ -201,16 +201,16 @@ def _build_domain_nodes(assignments):
 
 ---
 
-## 3. 边定义
+## 3. Edge Definitions
 
-### 3.1 边分类
+### 3.1 Edge Classification
 
-| 边类型 | 用途 | 数量 |
-|--------|------|------|
-| **基础连接边** | 建立实体间基本关系 | ~25,000 |
-| **召回辅助边** | 支持三路召回策略 | ~420,000 |
+| Edge Type | Purpose | Count |
+|-----------|---------|-------|
+| **Basic Connection Edges** | Establish basic relationships between entities | ~25,000 |
+| **Recall Assistance Edges** | Support three-path recall strategy | ~420,000 |
 
-### 3.2 基础连接边
+### 3.2 Basic Connection Edges
 
 #### (1) Paper → Idea (`implements`)
 ```python
@@ -231,15 +231,15 @@ G.add_edge(
 )
 ```
 
-**质量评分计算**:
+**Quality Score Calculation**:
 ```python
 def _get_paper_quality(paper):
     reviews = paper.get('reviews', [])
     if reviews:
         scores = [r['overall_score'] for r in reviews]
         avg_score = np.mean(scores)
-        return (avg_score - 1) / 9  # 归一化到[0,1]
-    return 0.5  # 默认值(V3当前无review数据)
+        return (avg_score - 1) / 9  # Normalize to [0,1]
+    return 0.5  # Default value (V3 currently has no review data)
 ```
 
 #### (3) Paper → Domain (`in_domain`)
@@ -251,11 +251,11 @@ G.add_edge(
 )
 ```
 
-### 3.3 召回辅助边
+### 3.3 Recall Assistance Edges
 
 #### (1) Idea → Domain (`belongs_to`)
 
-**权重定义**: Idea相关Paper在该Domain的占比
+**Weight Definition**: Proportion of Idea-related Papers in that Domain
 
 ```python
 for idea in ideas:
@@ -279,9 +279,9 @@ for idea in ideas:
 
 #### (2) Pattern → Domain (`works_well_in`)
 
-**权重定义**:
-- `effectiveness`: Pattern在该Domain的效果增益(相对基线) [-1, 1]
-- `confidence`: 基于样本数的置信度 [0, 1]
+**Weight Definition**:
+- `effectiveness`: Pattern's effectiveness gain in that Domain (relative to baseline) [-1, 1]
+- `confidence`: Confidence based on sample size [0, 1]
 
 ```python
 for pattern in patterns:
@@ -313,200 +313,199 @@ for pattern in patterns:
 
 #### (3) Idea → Paper (`similar_to_paper`)
 
-**注意**: 此边在V3.1版本中**已预构建但未直接使用**。路径3召回改为**实时计算**用户Idea与Paper Title的相似度。
+**Note**: This edge is **pre-built but not directly used** in V3.1. Path 3 recall has been changed to **real-time calculation** of similarity between user Idea and Paper Title.
 
 ---
 
-## 4. 构建流程
+## 4. Construction Workflow
 
-### 4.1 整体流程
+### 4.1 Overall Workflow
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│               【知识图谱构建完整流程】                        │
+│          【Complete Knowledge Graph Construction Workflow】   │
 └─────────────────────────────────────────────────────────────┘
 
-【阶段1: 数据加载】(约1秒)
+【Phase 1: Data Loading】(approx. 1 second)
     │
-    ├─ 加载 assignments.jsonl (8,285篇论文)
-    ├─ 加载 cluster_library_sorted.jsonl (124个Pattern Cluster)
-    └─ 加载 iclr_patterns_full.jsonl (8,310条Pattern详情)
+    ├─ Load assignments.jsonl (8,285 papers)
+    ├─ Load cluster_library_sorted.jsonl (124 Pattern Clusters)
+    └─ Load iclr_patterns_full.jsonl (8,310 Pattern details)
     │
     ▼
 
-【阶段2: 节点构建】(约2分钟)
+【Phase 2: Node Construction】(approx. 2 minutes)
     │
-    ├─ 1. Pattern节点 (124个)
-    │     ├─ 从cluster_library提取基础信息
-    │     ├─ 提取exemplars的ideas/problems/solutions/stories
-    │     └─ 生成初步Pattern节点
+    ├─ 1. Pattern nodes (124)
+    │     ├─ Extract basic information from cluster_library
+    │     ├─ Extract ideas/problems/solutions/stories from exemplars
+    │     └─ Generate initial Pattern nodes
     │     ↓
-    ├─ 2. LLM增强Pattern (124个,约10分钟)
-    │     ├─ 为每个Pattern调用LLM
-    │     ├─ 生成归纳性总结(4个维度)
+    ├─ 2. LLM-enhanced Patterns (124, approx. 10 minutes)
+    │     ├─ Call LLM for each Pattern
+    │     ├─ Generate inductive summaries (4 dimensions)
     │     │   ├─ representative_ideas
     │     │   ├─ common_problems
     │     │   ├─ solution_approaches
     │     │   └─ story
-    │     └─ 添加llm_enhanced_summary字段
+    │     └─ Add llm_enhanced_summary field
     │     ↓
-    ├─ 3. Idea节点 (8,284个)
-    │     ├─ 从pattern_details提取idea字段
-    │     ├─ MD5 hash去重
-    │     └─ 提取base_problem/solution_pattern/story/application
+    ├─ 3. Idea nodes (8,284)
+    │     ├─ Extract idea field from pattern_details
+    │     ├─ MD5 hash deduplication
+    │     └─ Extract base_problem/solution_pattern/story/application
     │     ↓
-    ├─ 4. Domain节点 (98个)
-    │     ├─ 从assignments聚合domain信息
-    │     ├─ 收集sub_domains
-    │     ├─ 统计paper_count
-    │     └─ 关联related_pattern_ids
+    ├─ 4. Domain nodes (98)
+    │     ├─ Aggregate domain information from assignments
+    │     ├─ Collect sub_domains
+    │     ├─ Count paper_count
+    │     └─ Associate related_pattern_ids
     │     ↓
-    └─ 5. Paper节点 (8,285个)
-          ├─ 合并assignments和pattern_details
-          ├─ 提取title/domain/sub_domains/idea
-          └─ 保留cluster_id/global_pattern_id
+    └─ 5. Paper nodes (8,285)
+          ├─ Merge assignments and pattern_details
+          ├─ Extract title/domain/sub_domains/idea
+          └─ Preserve cluster_id/global_pattern_id
     │
     ▼
 
-【阶段3: 建立关联】(约1秒)
+【Phase 3: Establish Associations】(approx. 1 second)
     │
-    ├─ Paper → Pattern关联
-    │    └─ 通过cluster_id映射到pattern_id
-    │        覆盖率: 5,981/8,285 (72.2%)
+    ├─ Paper → Pattern association
+    │    └─ Map cluster_id to pattern_id
+    │        Coverage: 5,981/8,285 (72.2%)
     │
-    ├─ Paper → Idea关联
-    │    └─ 通过idea文本的MD5 hash映射
-    │        覆盖率: 8,284/8,285 (100%)
+    ├─ Paper → Idea association
+    │    └─ Map through MD5 hash of idea text
+    │        Coverage: 8,284/8,285 (100%)
     │
-    ├─ Paper → Domain关联
-    │    └─ 通过domain名称映射到domain_id
-    │        覆盖率: 8,285/8,285 (100%)
+    ├─ Paper → Domain association
+    │    └─ Map domain name to domain_id
+    │        Coverage: 8,285/8,285 (100%)
     │
-    └─ Idea → Pattern关联
-         └─ 通过Paper中转建立连接
-             ├─ 收集每个Idea关联的所有Paper
-             ├─ 提取这些Paper的pattern_id
-             └─ 填充Idea.pattern_ids字段
-             平均每个Idea关联0.7个Pattern
-    │
-    ▼
-
-【阶段4: 保存节点】(约1秒)
-    │
-    ├─ 输出 nodes_idea.json (8,284个)
-    ├─ 输出 nodes_pattern.json (124个)
-    ├─ 输出 nodes_domain.json (98个)
-    ├─ 输出 nodes_paper.json (8,285个)
-    └─ 输出 knowledge_graph_stats.json
+    └─ Idea → Pattern association
+         └─ Establish connection through Paper intermediary
+             ├─ Collect all Papers associated with each Idea
+             ├─ Extract pattern_id from these Papers
+             └─ Populate Idea.pattern_ids field
+             Average 0.7 Patterns per Idea
     │
     ▼
 
-【阶段5: 构建边】(约2-3分钟)
+【Phase 4: Save Nodes】(approx. 1 second)
     │
-    ├─ 基础连接边
-    │    ├─ Paper → Idea (implements) 8,284条
-    │    ├─ Paper → Pattern (uses_pattern) 5,981条
-    │    └─ Paper → Domain (in_domain) 8,285条
+    ├─ Save nodes_idea.json
+    ├─ Save nodes_pattern.json
+    ├─ Save nodes_domain.json
+    └─ Save nodes_paper.json
     │
-    ├─ 召回辅助边 - 路径2
+    ▼
+
+【Phase 5: Build Edges】(approx. 2-3 minutes)
+    │
+    ├─ Basic connection edges
+    │    ├─ Paper → Idea (implements) 8,284 edges
+    │    ├─ Paper → Pattern (uses_pattern) 5,981 edges
+    │    └─ Paper → Domain (in_domain) 8,285 edges
+    │
+    ├─ Recall assistance edges - Path 2
     │    ├─ Idea → Domain (belongs_to)
-    │    │   └─ 权重: Idea相关Paper在该Domain的占比
+    │    │   └─ Weight: Proportion of Idea-related Papers in that Domain
     │    │
     │    └─ Pattern → Domain (works_well_in)
-    │        ├─ effectiveness: Pattern在Domain的效果增益
-    │        └─ confidence: 基于样本数的置信度
+    │        ├─ effectiveness: Pattern's effectiveness gain in Domain
+    │        └─ confidence: Confidence based on sample size
     │
-    └─ 召回辅助边 - 路径3
-         └─ (实时计算,不预构建)
-    │
-    ▼
-
-【阶段6: 保存图谱】(约1秒)
-    │
-    ├─ 输出 edges.json
-    └─ 输出 knowledge_graph_v2.gpickle
+    └─ Recall assistance edges - Path 3
+         └─ (Real-time calculation, not pre-built)
     │
     ▼
 
-✅ 构建完成
-   ├─ 总节点: 16,791个
-   ├─ 总边数: 444,872条
-   └─ 总耗时: 约15-18分钟
+【Phase 6: Save Graph】(approx. 1 second)
+    │
+    ├─ Output edges.json
+    └─ Output knowledge_graph_v2.gpickle
+    │
+    ▼
+
+✅ Construction Complete
+   ├─ Total nodes: 16,791
+   ├─ Total edges: 444,872
+   └─ Total time: approx. 15-18 minutes
 ```
 
-### 4.2 关键步骤
+### 4.2 Key Steps
 
-#### Step 1: 加载数据
+#### Step 1: Load Data
 ```python
-assignments = _load_assignments()      # 8,285条
-clusters = _load_clusters()            # 124个
-pattern_details = _load_pattern_details()  # 8,310条
+assignments = _load_assignments()      # 8,285 entries
+clusters = _load_clusters()            # 124 entries
+pattern_details = _load_pattern_details()  # 8,310 entries
 ```
 
-#### Step 2: 构建节点
+#### Step 2: Build Nodes
 ```python
-_build_pattern_nodes(clusters)         # 124个Pattern
-_enhance_patterns_with_llm(clusters)   # LLM增强
-_build_idea_nodes(pattern_details)     # 8,284个Idea
-_build_domain_nodes(assignments)       # 98个Domain
-_build_paper_nodes(assignments, pattern_details)  # 8,285个Paper
+_build_pattern_nodes(clusters)         # 124 Patterns
+_enhance_patterns_with_llm(clusters)   # LLM enhancement
+_build_idea_nodes(pattern_details)     # 8,284 Ideas
+_build_domain_nodes(assignments)       # 98 Domains
+_build_paper_nodes(assignments, pattern_details)  # 8,285 Papers
 ```
 
-#### Step 3: 建立关联
+#### Step 3: Establish Associations
 ```python
 _link_paper_to_pattern(assignments)    # Paper → Pattern
 _link_paper_to_idea()                  # Paper → Idea
 _link_paper_to_domain()                # Paper → Domain
-_link_idea_to_pattern()                # Idea → Pattern(通过Paper中转)
+_link_idea_to_pattern()                # Idea → Pattern (via Paper intermediary)
 ```
 
-#### Step 4: 构建边
+#### Step 4: Build Edges
 ```python
-_build_paper_edges()                   # 基础连接边
-_build_idea_belongs_to_domain_edges()  # 召回边-路径2
+_build_paper_edges()                   # Basic connection edges
+_build_idea_belongs_to_domain_edges()  # Recall edges - Path 2
 _build_pattern_works_well_in_domain_edges()
-_build_idea_similar_to_paper_edges()   # 召回边-路径3
+_build_idea_similar_to_paper_edges()   # Recall edges - Path 3
 ```
 
-#### Step 5: 保存结果
+#### Step 5: Save Results
 ```python
-_save_nodes()  # 保存4类节点JSON
-_save_edges()  # 保存edges.json
-_save_graph()  # 保存knowledge_graph_v2.gpickle
+_save_nodes()  # Save 4 types of node JSON
+_save_edges()  # Save edges.json
+_save_graph()  # Save knowledge_graph_v2.gpickle
 ```
 
 ---
 
-## 5. LLM增强机制
+## 5. LLM Enhancement Mechanism
 
-### 5.1 增强目标
+### 5.1 Enhancement Objective
 
-为每个Pattern cluster生成归纳性总结,既保留具体示例,也提供全局概述。
+Generate inductive summaries for each Pattern cluster, preserving both specific examples and providing a global overview.
 
-### 5.2 Prompt设计
+### 5.2 Prompt Design
 
 ```python
 def _build_llm_prompt_for_pattern(pattern_node, exemplars):
     prompt = f"""
-你是一个学术研究专家。请基于以下{len(exemplars)}篇论文的Pattern信息，
-为Pattern Cluster "{pattern_node['name']}" 生成归纳性总结。
+You are an academic research expert. Based on the Pattern information from the following {len(exemplars)} papers,
+generate an inductive summary for Pattern Cluster "{pattern_node['name']}".
 
-【论文Pattern信息】
+【Paper Pattern Information】
 {format_exemplars(exemplars)}
 
-【任务】
-请生成4个维度的归纳性总结(每个1句话，80-120字)：
-1. representative_ideas: 代表性研究想法
-2. common_problems: 共同解决的问题
-3. solution_approaches: 解决方法特点
-4. story: 研究叙事框架
+【Task】
+Please generate inductive summaries for 4 dimensions (each 1 sentence, 80-120 words):
+1. representative_ideas: Representative research ideas
+2. common_problems: Common problems addressed
+3. solution_approaches: Solution approach characteristics
+4. story: Research narrative framework
 
-返回JSON格式。
+Return JSON format.
 """
     return prompt
 ```
 
-### 5.3 API配置
+### 5.3 API Configuration
 
 ```python
 SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
@@ -516,18 +515,18 @@ LLM_MODEL = "Qwen/Qwen2.5-7B-Instruct"
 
 ---
 
-## 6. 参数配置
+## 6. Parameter Configuration
 
-### 6.1 路径配置
+### 6.1 Path Configuration
 
 ```python
-# 数据输入路径
+# Data input paths
 DATA_DIR = PROJECT_ROOT / "data" / "ICLR_25"
 ASSIGNMENTS_FILE = DATA_DIR / "assignments.jsonl"
 CLUSTER_LIBRARY_FILE = DATA_DIR / "cluster_library_sorted.jsonl"
 PATTERN_DETAILS_FILE = DATA_DIR / "iclr_patterns_full.jsonl"
 
-# 输出路径
+# Output paths
 OUTPUT_DIR = PROJECT_ROOT / "output"
 NODES_IDEA = OUTPUT_DIR / "nodes_idea.json"
 NODES_PATTERN = OUTPUT_DIR / "nodes_pattern.json"
@@ -537,205 +536,205 @@ EDGES_FILE = OUTPUT_DIR / "edges.json"
 GRAPH_FILE = OUTPUT_DIR / "knowledge_graph_v2.gpickle"
 ```
 
-### 6.2 LLM配置
+### 6.2 LLM Configuration
 
 ```python
-# API密钥(环境变量)
+# API key (environment variable)
 SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
 
-# API端点
+# API endpoint
 LLM_API_URL = "https://api.siliconflow.cn/v1/chat/completions"
 
-# 模型选择
-LLM_MODEL = "Qwen/Qwen2.5-7B-Instruct"  # 节点构建
-# 或 "Qwen/Qwen3-14B"  # Pipeline生成
+# Model selection
+LLM_MODEL = "Qwen/Qwen2.5-7B-Instruct"  # Node construction
+# or "Qwen/Qwen3-14B"  # Pipeline generation
 ```
 
-### 6.3 边构建配置
+### 6.3 Edge Construction Configuration
 
 ```python
-# Pattern-Domain边权重计算
-BASELINE_SAMPLE_SIZE = 20  # confidence达到1.0的样本数阈值
+# Pattern-Domain edge weight calculation
+BASELINE_SAMPLE_SIZE = 20  # Sample size threshold for confidence to reach 1.0
 
-# Paper质量评分
-# 优先使用 review_stats.avg_score (基于多维度Review评分)
-# 无review数据时使用默认值 0.5
+# Paper quality scoring
+# Prioritize using review_stats.avg_score (based on multi-dimensional Review scores)
+# Use default value 0.5 when no review data is available
 ```
 
 ---
 
-## 7. 运行方式
+## 7. Execution Methods
 
-### 7.1 环境准备
+### 7.1 Environment Setup
 
-**依赖安装**:
+**Dependency Installation**:
 ```bash
 cd /Users/gaoge/code/mycode/Idea2Paper/Paper-KG-Pipeline
 pip install -r requirements.txt
 ```
 
-**环境变量设置**:
+**Environment Variable Setup**:
 ```bash
 export SILICONFLOW_API_KEY="your_api_key_here"
 ```
 
-### 7.2 构建节点
+### 7.2 Build Nodes
 
-**命令**:
+**Command**:
 ```bash
 python scripts/build_entity_v3.py
 ```
 
-**输出**:
+**Output**:
 ```
 output/
-├── nodes_idea.json           # 8,284个Idea节点
-├── nodes_pattern.json        # 124个Pattern节点
-├── nodes_domain.json         # 98个Domain节点
-├── nodes_paper.json          # 8,285个Paper节点
-└── knowledge_graph_stats.json # 统计信息
+├── nodes_idea.json           # 8,284 Idea nodes
+├── nodes_pattern.json        # 124 Pattern nodes
+├── nodes_domain.json         # 98 Domain nodes
+├── nodes_paper.json          # 8,285 Paper nodes
+└── knowledge_graph_stats.json # Statistics
 ```
 
-**执行时间**: 约10-15分钟(含LLM增强)
+**Execution Time**: Approx. 10-15 minutes (including LLM enhancement)
 
-### 7.3 构建边
+### 7.3 Build Edges
 
-**命令**:
+**Command**:
 ```bash
 python scripts/build_edges.py
 ```
 
-**输出**:
+**Output**:
 ```
 output/
-├── edges.json                # 边数据(JSON格式)
-└── knowledge_graph_v2.gpickle # 完整图谱(NetworkX格式)
+├── edges.json                # Edge data (JSON format)
+└── knowledge_graph_v2.gpickle # Complete graph (NetworkX format)
 ```
 
-**执行时间**: 约2-3分钟
+**Execution Time**: Approx. 2-3 minutes
 
-### 7.4 验证图谱
+### 7.4 Verify Graph
 
-**Python交互式验证**:
+**Python Interactive Verification**:
 ```python
 import json
 import pickle
 
-# 加载节点
+# Load nodes
 with open('output/nodes_pattern.json') as f:
     patterns = json.load(f)
-print(f"Pattern数量: {len(patterns)}")
+print(f"Pattern count: {len(patterns)}")
 
-# 加载图谱
+# Load graph
 with open('output/knowledge_graph_v2.gpickle', 'rb') as f:
     G = pickle.load(f)
-print(f"节点数: {G.number_of_nodes()}")
-print(f"边数: {G.number_of_edges()}")
+print(f"Node count: {G.number_of_nodes()}")
+print(f"Edge count: {G.number_of_edges()}")
 ```
 
 ---
 
-## 8. 输出统计
+## 8. Output Statistics
 
-### 8.1 节点统计
+### 8.1 Node Statistics
 
 ```
-总节点数:  9,411
-  - Idea:      8,284 (100%覆盖率)
+Total nodes:  9,411
+  - Idea:      8,284 (100% coverage)
   - Pattern:   124
   - Domain:    98
   - Paper:     8,285
 ```
 
-### 8.2 边统计
+### 8.2 Edge Statistics
 
 ```
-【基础连接边】
-  Paper→Idea:      8,284 条
-  Paper→Pattern:   5,981 条 (72.2%覆盖率)
-  Paper→Domain:    8,285 条
+【Basic Connection Edges】
+  Paper→Idea:      8,284 edges
+  Paper→Pattern:   5,981 edges (72.2% coverage)
+  Paper→Domain:    8,285 edges
 
-【召回边 - 路径2】
-  Idea→Domain:     ~15,000 条
-  Pattern→Domain:  ~3,500 条
+【Recall Edges - Path 2】
+  Idea→Domain:     ~15,000 edges
+  Pattern→Domain:  ~3,500 edges
 
-【召回边 - 路径3】
-  (实时计算，无预构建边)
+【Recall Edges - Path 3】
+  (Real-time calculation, no pre-built edges)
 
-总边数: 444,872 条
+Total edges: 444,872
 ```
 
-### 8.3 数据质量
+### 8.3 Data Quality
 
 ```
-✅ Idea覆盖率: 100% (8,284/8,285)
-✅ Pattern覆盖率: 72.2% (基于cluster分配)
-✅ LLM增强: 124/124 Pattern节点
-✅ 聚类质量: 可量化评估(coherence指标)
-```
-
----
-
-## 9. 故障排查
-
-### 9.1 常见问题
-
-**Q: LLM API调用失败**
-```
-错误: Connection timeout / API key invalid
-解决:
-1. 检查网络连接
-2. 验证SILICONFLOW_API_KEY环境变量
-3. 检查API额度
-```
-
-**Q: 内存不足**
-```
-错误: MemoryError
-解决:
-1. 减少LLM增强的exemplar数量(默认20→10)
-2. 分批处理Pattern节点
-```
-
-**Q: 输出文件已存在**
-```
-行为: 自动覆盖
-建议: 备份重要的output/文件后再运行
-```
-
-### 9.2 日志查看
-
-构建过程会输出详细日志:
-```
-🚀 开始构建知识图谱 V3 (ICLR数据源)
-【Step 1】加载数据
-  ✅ 加载 8285 篇论文分配
-【Step 2】构建节点
-  ✓ 创建 124 个 Pattern 节点
-  ✓ LLM增强: 124/124 完成
-【Step 3】建立节点关联
-  ✓ 共建立 8284 个 Idea->Pattern 连接
-【Step 4】保存节点
-【Step 5】统计信息
-✅ 知识图谱构建完成!
+✅ Idea coverage: 100% (8,284/8,285)
+✅ Pattern coverage: 72.2% (based on cluster assignment)
+✅ LLM enhancement: 124/124 Pattern nodes
+✅ Clustering quality: Quantifiable evaluation (coherence metric)
 ```
 
 ---
 
-## 10. 扩展与优化
+## 9. Troubleshooting
 
-### 10.1 数据源扩展
+### 9.1 Common Issues
 
-**添加新会议数据**:
-1. 准备与ICLR格式一致的JSONL文件
-2. 修改`DATA_DIR`路径
-3. 重新运行`build_entity_v3.py`
+**Q: LLM API call failure**
+```
+Error: Connection timeout / API key invalid
+Solution:
+1. Check network connection
+2. Verify SILICONFLOW_API_KEY environment variable
+3. Check API quota
+```
 
-### 10.2 Review数据扩展
+**Q: Insufficient memory**
+```
+Error: MemoryError
+Solution:
+1. Reduce number of exemplars for LLM enhancement (default 20→10)
+2. Process Pattern nodes in batches
+```
 
-**当前状态**: Paper节点已集成ICLR 2025的review数据，包含多维度评分
+**Q: Output file already exists**
+```
+Behavior: Automatic overwrite
+Recommendation: Backup important output/ files before running
+```
 
-**数据结构**:
+### 9.2 Log Viewing
+
+The construction process outputs detailed logs:
+```
+🚀 Starting Knowledge Graph Construction V3 (ICLR data source)
+【Step 1】Load data
+  ✅ Loaded 8285 paper assignments
+【Step 2】Build nodes
+  ✓ Created 124 Pattern nodes
+  ✓ LLM enhancement: 124/124 completed
+【Step 3】Establish node associations
+  ✓ Total 8284 Idea->Pattern connections established
+【Step 4】Save nodes
+【Step 5】Statistics
+✅ Knowledge Graph Construction Complete!
+```
+
+---
+
+## 10. Extensions and Optimizations
+
+### 10.1 Data Source Extension
+
+**Adding New Conference Data**:
+1. Prepare JSONL files consistent with ICLR format
+2. Modify `DATA_DIR` path
+3. Re-run `build_entity_v3.py`
+
+### 10.2 Review Data Extension
+
+**Current Status**: Paper nodes have integrated ICLR 2025 review data, including multi-dimensional scores
+
+**Data Structure**:
 ```json
 {
   "paper_id": "xxx",
@@ -749,13 +748,13 @@ print(f"边数: {G.number_of_edges()}")
 }
 ```
 
-**扩展方案**: 可添加更多会议的review数据以丰富知识图谱
+**Extension Plan**: Can add review data from more conferences to enrich the knowledge graph
 
-### 10.3 性能优化
+### 10.3 Performance Optimization
 
-**LLM增强加速**:
+**LLM Enhancement Acceleration**:
 ```python
-# 并行处理Pattern
+# Parallel processing of Patterns
 from concurrent.futures import ThreadPoolExecutor
 
 with ThreadPoolExecutor(max_workers=5) as executor:
@@ -765,32 +764,31 @@ with ThreadPoolExecutor(max_workers=5) as executor:
 
 ---
 
-## 11. 总结
+## 11. Summary
 
-### 核心成果
+### Core Achievements
 
-✅ 成功基于ICLR数据源构建知识图谱
-✅ 实现100% Idea覆盖率
-✅ 引入LLM增强,为每个Pattern生成归纳性总结
-✅ 保留聚类质量指标(coherence)
-✅ 代码模块化,易于扩展
+✅ Successfully built knowledge graph based on ICLR data source
+✅ Achieved 100% Idea coverage
+✅ Introduced LLM enhancement, generating inductive summaries for each Pattern
+✅ Preserved clustering quality metrics (coherence)
+✅ Modular code, easy to extend
 
-### 技术特性
+### Technical Features
 
-✅ **LLM集成**: 使用SiliconFlow API增强Pattern描述
-✅ **Prompt工程**: 结构化Prompt设计
-✅ **容错机制**: 自动JSON解析和修复
-✅ **双层描述**: 具体示例+全局总结
+✅ **LLM Integration**: Using SiliconFlow API to enhance Pattern descriptions
+✅ **Prompt Engineering**: Structured prompt design
+✅ **Fault Tolerance**: Automatic JSON parsing and repair
+✅ **Dual-Layer Description**: Specific examples + global summary
 
-### 扩展性
+### Extensibility
 
-✅ 支持增量更新
-✅ 可适配其他会议数据源
-✅ 为召回系统提供完整节点基础
+✅ Supports incremental updates
+✅ Adaptable to other conference data sources
+✅ Provides complete node foundation for recall system
 
 ---
 
-**生成时间**: 2026-01-25
-**版本**: V3.1
-**作者**: Idea2Paper Team
-
+**Generation Time**: 2026-01-25
+**Version**: V3.1
+**Author**: Idea2Paper Team

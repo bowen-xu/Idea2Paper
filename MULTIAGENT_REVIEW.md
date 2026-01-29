@@ -1,219 +1,260 @@
-# MultiAgentReview（基于图谱真实 Review 标尺）说明
+# MultiAgentReview (Based on Graph-Based Real Review Ruler) Explanation
 
-本文档解释本仓库 `Paper-KG-Pipeline` 的 **MultiAgentReview / MultiAgentCritic** 思路：如何用图谱中的真实 `review_stats` 做“可标定”的客观标尺、如何计算最终分数、以及如何通过配置项调整“严格程度”（strictness）。
+[English](MULTIAGENT_REVIEW.md) | [简体中文](MULTIAGENT_REVIEW_zh.md)
 
----
 
-## 0. 快速结论（你需要记住的几句话）
-
-- LLM **不再直接给 1~10 分**；它只输出“相对锚点论文更好/更差/持平 + 置信度 + 理由（必须引用锚点 score10）”。
-- 最终 1~10 分是 **确定性算法**算出来的：同一批 anchors + 同一份 comparisons JSON → 分数必定一致。
-- 通过标准不再是固定 7.0：默认采用 **方案B**（2/3 维度 ≥ q75 且 avg ≥ q50），q50/q75 来自该 pattern 下 **全部论文**的真实分布。
-- 严格质量模式下：critic 的 JSON 不合格 → 自动重试 → 仍失败 **直接终止本次 run**，不允许随便给一个 6.x 兜底。
-
-相关代码入口：
-- Anchored Critic：`Paper-KG-Pipeline/scripts/pipeline/critic.py`
-- Anchor/分布索引：`Paper-KG-Pipeline/scripts/pipeline/review_index.py`
-- 配置：`Paper-KG-Pipeline/scripts/pipeline/config.py`
-- 运行日志：仓库根目录 `log/run_.../`
+This document explains the **MultiAgentReview / MultiAgentCritic** methodology used in `Paper-KG-Pipeline` within this repository: how to use real `review_stats` from the knowledge graph as a "calibrated" objective ruler, how to calculate final scores, and how to adjust "strictness" via configuration.
 
 ---
 
-## 1. MultiAgentReview 是什么？（三位评审 + 三个维度）
+## 0. Quick Summary (Key Points to Remember)
 
-系统固定包含 3 个评审角色（multi-agent），每个角色输出一个维度分数：
+* The LLM **no longer directly assigns scores from 1 to 10**; it only outputs "better/worse/tie relative to anchor papers + confidence + rationale (must cite anchor score10)".
+* The final 1~10 score is calculated by a **deterministic algorithm**: The same batch of anchors + the same comparisons JSON → The score is guaranteed to be consistent.
+* The passing standard is no longer a fixed 7.0: **Scheme B** is adopted by default (2/3 dimensions ≥ q75 and avg ≥ q50), where q50/q75 are derived from the real distribution of **all papers** under that pattern.
+* In strict quality mode: If the critic's JSON is invalid → Auto-retry → If it still fails, **terminate the current run immediately**, disallowing arbitrary 6.x fallback scores.
 
-- **Methodology**：方法是否合理、技术细节是否严谨、实验是否可信
-- **Novelty**：创新性是否扎实，是否只是常见堆叠
-- **Storyteller**：叙事是否完整（动机→方法→实验→结论是否闭环）
+Relevant Code Entry Points:
 
-最后输出：
-- 每个角色的 `score`（1~10）
-- `avg_score`（三个角色平均）
-- `main_issue`（最低分角色映射到 `novelty / stability / domain_distance`）
-- `audit`（审计信息：anchors、comparisons、loss、通过阈值与判定细节）
-
----
-
-## 2. “客观标尺”来自哪里？（真实 review_stats → score10）
-
-### 2.1 数据来源
-只使用图谱导出的论文节点数据：
-- `Paper-KG-Pipeline/output/nodes_paper.json`
-  - 每篇 paper 带 `review_stats`：`avg_score`、`review_count`、`highest_score`、`lowest_score` 等。
-
-### 2.2 score10 与权重（weight）
-在 `ReviewIndex` 中会把真实统计映射成 1~10 标尺：
-
-- `score10 = 1 + 9 * avg_score`
-- `dispersion10 = 9 * (highest_score - lowest_score)`（分歧越大越不可靠）
-- `weight = log(1 + review_count) / (1 + dispersion10)`（评论越多越可信；分歧越大权重越小）
-
-这些值会被缓存为 `paper_summary`，并用于：
-- 选锚点（anchors）
-- 拟合最终分数（加权 loss）
+* Anchored Critic: `Paper-KG-Pipeline/scripts/pipeline/critic.py`
+* Anchor/Distribution Index: `Paper-KG-Pipeline/scripts/pipeline/review_index.py`
+* Configuration: `Paper-KG-Pipeline/scripts/pipeline/config.py`
+* Run Logs: Repo root directory `log/run_.../`
 
 ---
 
-## 3. Anchor（锚点论文）怎么选？为什么不是全给？
+## 1. What is MultiAgentReview? (Three Reviewers + Three Dimensions)
 
-把某个 pattern 下所有论文都塞给 LLM 会导致上下文爆炸、成本高、输出不稳定。正确做法：
+The system includes 3 fixed reviewer roles (multi-agent), each outputting a dimension score:
 
-- **离线/索引层**：使用该 pattern 下“全部论文”计算分布（q50/q75 等）
-- **在线/LLM 对标**：只给 5~9 篇锚点论文做对标
+* **Methodology**: Whether the method is sound, technical details are rigorous, and experiments are credible.
+* **Novelty**: Whether the innovation is solid or just a trivial stacking of existing methods.
+* **Storyteller**: Whether the narrative is complete (Motivation → Method → Experiments → Conclusion loop is closed).
 
-当前策略（固定 5 + 自适应加密到 9）：
+Final Output:
 
-1) 固定锚点（最稳、可复现）
-   - 取该 pattern 下 `score10` 的分位点：q10/q25/q50/q75/q90（5 篇）
-2) 可选 exemplar（如果 pattern_info 含 exemplar_paper_ids）
-   - 额外补 0~2 篇最可靠 exemplar（按 weight/review_count 排序）
-3) 自适应加密（必要时补齐到最多 9 篇）
-   - 如果第一轮拟合不稳定（loss 大、置信度低、或对标不单调），就在当前估计分数附近补 2~4 篇更“贴近分数”的论文再对标一次
-
-代码位置：`Paper-KG-Pipeline/scripts/pipeline/review_index.py`
+* `score` (1~10) for each role
+* `avg_score` (Average of the three roles)
+* `main_issue` (The lowest scoring role mapped to `novelty / stability / domain_distance`)
+* `audit` (Audit information: anchors, comparisons, loss, passing thresholds, and decision details)
 
 ---
 
-## 4. LLM 在评审里到底做什么？（只做相对判断）
+## 2. Where Does the "Objective Ruler" Come From? (Real review_stats → score10)
 
-### 4.1 LLM 输出格式（comparisons）
-每个角色会收到同一组 anchors（含真实 `score10`），LLM 必须返回 JSON：
+### 2.1 Data Source
 
-- 对每篇 anchor 给出：`better / tie / worse` + `confidence(0~1)` + `rationale`
-- rationale 必须包含对应锚点的 `score10: X.X`
+Only uses paper node data exported from the graph:
 
-LLM **不允许**输出最终分数。
+* `Paper-KG-Pipeline/output/nodes_paper.json`
+  * Each paper carries `review_stats`: `avg_score`, `review_count`, `highest_score`, `lowest_score`, etc.
 
-### 4.2 从 comparisons 到概率 p_i（确定性映射）
-把 judgement/confidence 映射成概率（“击败该锚点”的概率）：
 
-- better: `p = 0.5 + 0.45 * confidence`
-- tie:    `p = 0.5`
-- worse:  `p = 0.5 - 0.45 * confidence`
 
-直觉：confidence 越高，p 离 0.5 越远；tie 永远是 0.5。
+### 2.2 score10 and Weight
 
----
+In `ReviewIndex`, real statistics are mapped to a 1~10 scale:
 
-## 5. 最终 1~10 分怎么计算？（确定性拟合）
+* `score10 = 1 + 9 * avg_score`
+* `dispersion10 = 9 * (highest_score - lowest_score)` (Larger divergence implies lower reliability)
+* `weight = log(1 + review_count) / (1 + dispersion10)` (More reviews imply higher credibility; larger divergence implies lower weight)
 
-目标：找到一个分数 S，使得对于每个锚点分数 s_i，模型预测的“胜率”接近 LLM 给的 p_i。
+These values are cached as `paper_summary` and used for:
 
-- 预测胜率：`sigmoid(k*(S - s_i))`
-- k 为常量（默认 1.2）
-- 用加权最小二乘拟合：
-  - `loss(S) = Σ w_i * (sigmoid(k*(S-s_i)) - p_i)^2`
-- 在 `S ∈ [1,10]` 上网格搜索（步长默认 0.01），取 loss 最小的 S
-
-这一步完全确定性：同一 anchors + 同一 comparisons → 得到的 S 必定一致。
-
-代码位置：`Paper-KG-Pipeline/scripts/pipeline/critic.py`（`_compute_score_from_comparisons`）
+* Selecting anchors
+* Fitting the final score (Weighted Loss)
 
 ---
 
-## 6. 通过标准（方案B）：相对 pattern 全量分布
+## 3. How are Anchors Selected? Why Not Give All?
 
-### 6.1 为什么不用固定 7.0？
-不同 pattern 的真实论文分布不同：有的主题整体分低、审稿更严；固定 7.0 会“卡死”。
+Feeding all papers under a pattern to the LLM would lead to context explosion, high costs, and unstable outputs. The correct approach:
 
-### 6.2 方案B（默认）
-对当前 `pattern_id`，用该 pattern 下 **全部论文**的 score10 计算：
-- `q50`：中位线
-- `q75`：优秀线（前 25%）
+* **Offline/Index Layer**: Use "all papers" under that pattern to calculate the distribution (q50/q75, etc.).
+* **Online/LLM Benchmarking**: Only provide 5~9 anchor papers for benchmarking.
 
-通过条件：
-- (A) 三个维度里至少 **2 个维度 score ≥ q75**
-- 且 (B) **avg_score ≥ q50**
+Current Strategy (Fixed 5 + Adaptive Padding up to 9):
 
-判定与阈值会写入：
-- `critic_result['audit']['pass']`
-- 同时写入 `events.jsonl` 的 `pass_threshold_computed`
+1. Fixed Anchors (Most stable, reproducible)
+   * Take quantiles of `score10` under that pattern: q10/q25/q50/q75/q90 (5 papers).
 
-代码位置：
-- 分位数计算：`Paper-KG-Pipeline/scripts/pipeline/review_index.py`
-- 通过判定：`Paper-KG-Pipeline/scripts/pipeline/critic.py`（`_compute_pass_decision`）
 
-### 6.3 分布数据不足时的回退
-如果该 pattern 下论文数量太少（默认 < 20）：
-- 默认回退到 **global 分布**（全局所有论文的 q50/q75）
-- 也可配置回退到固定 `PASS_SCORE`
+2. Optional Exemplars (If pattern_info contains exemplar_paper_ids)
+   * Supplement with 0~2 most reliable exemplars (sorted by weight/review_count).
+
+
+3. Adaptive Padding (Pad up to 9 papers if necessary)
+   * If the first round of fitting is unstable (high loss, low confidence, or non-monotonic benchmarking), pad with 2~4 papers closer to the "current estimated score" and benchmark again.
+
+
+
+Code Location: `Paper-KG-Pipeline/scripts/pipeline/review_index.py`
 
 ---
 
-## 7. 严格程度（strictness）如何配置？
+## 4. What Does the LLM Actually Do in Review? (Relative Judgment Only)
 
-下面这些都通过环境变量控制（不需要改代码）。
+### 4.1 LLM Output Format (comparisons)
 
-### 7.1 Critic JSON 严格模式（最关键）
-| 配置 | 默认 | 含义 |
-|---|---:|---|
-| `I2P_CRITIC_STRICT_JSON` | `1` | 1=严格：JSON 不合格会重试，仍失败直接终止 run；0=允许中性兜底 |
-| `I2P_CRITIC_JSON_RETRIES` | `2` | 失败后的最大重试次数（Repair/Re-emit） |
+Each role receives the same set of anchors (containing real `score10`), and the LLM must return JSON:
 
-常用：
-- 本地无 key 冒烟跑通链路：`I2P_CRITIC_STRICT_JSON=0`
-- 追求质量：保持 `I2P_CRITIC_STRICT_JSON=1`，并配置 `SILICONFLOW_API_KEY`
+* For each anchor, provide: `better / tie / worse` + `confidence(0~1)` + `rationale`
+* The rationale must cite the corresponding anchor's `score10: X.X`
 
-### 7.2 通过标准严格程度（方案B相关）
-| 配置 | 默认 | 含义 |
-|---|---:|---|
-| `I2P_PASS_MODE` | `two_of_three_q75_and_avg_ge_q50` | 目前实现的方案B；其它值会退回固定 PASS_SCORE |
-| `I2P_PASS_MIN_PATTERN_PAPERS` | `20` | pattern 论文数少于该值时触发 fallback |
-| `I2P_PASS_FALLBACK` | `global` | `global`=用全局分布；`fixed`=用固定 `PASS_SCORE` |
+The LLM is **NOT allowed** to output a final score.
 
-### 7.3 仍保留的 `PASS_SCORE=7.0` 有什么用？
-`PASS_SCORE` 现在是**最后兜底**，只在你配置 `I2P_PASS_FALLBACK=fixed` 或分布不可用时使用。
+### 4.2 From comparisons to Probability p_i (Deterministic Mapping)
+
+Map judgement/confidence to probability ("probability of beating the anchor"):
+
+* better: `p = 0.5 + 0.45 * confidence`
+* tie:    `p = 0.5`
+* worse:  `p = 0.5 - 0.45 * confidence`
+
+Intuition: Higher confidence pushes p further from 0.5; tie is always 0.5.
 
 ---
 
-## 8. 怎么看日志确认“有没有兜底/失败”？
+## 5. How is the Final 1~10 Score Calculated? (Deterministic Fitting)
 
-每次 run 会生成目录：仓库根 `log/run_YYYYMMDD_HHMMSS_<pid>_<rand>/`
+Goal: Find a score S such that for each anchor score s_i, the model's predicted "win rate" is close to the p_i given by the LLM.
 
-重点看：
-- `events.jsonl`
-  - 有 `critic_fallback_neutral`：说明你允许兜底（strict=0）且触发了中性兜底
-  - 有 `critic_invalid_output_fatal`：说明 strict=1 且 JSON 失败导致终止
-  - 有 `pass_threshold_computed`：记录 q50/q75、通过判定细节
-- `llm_calls.jsonl`
-  - `simulated=true`：没有 key，走模拟输出
-  - `ok=false`：调用失败
+* Predicted Win Rate: `sigmoid(k*(S - s_i))`
+* k is a constant (default 1.2)
+* Use Weighted Least Squares Fitting:
+  * `loss(S) = Σ w_i * (sigmoid(k*(S-s_i)) - p_i)^2`
+
+* Grid search for S over `[1,10]` (step size default 0.01), take S that minimizes loss.
+
+This step is completely deterministic: Same anchors + Same comparisons → The resulting S is guaranteed to be consistent.
+
+Code Location: `Paper-KG-Pipeline/scripts/pipeline/critic.py` (`_compute_score_from_comparisons`)
 
 ---
 
-## 9. 常用运行命令（建议复制）
+## 6. Passing Standard (Scheme B): Relative to Full Pattern Distribution
 
-### 9.1 本地无 key 冒烟（允许兜底，只测链路）
+### 6.1 Why Not Use Fixed 7.0?
+
+The real paper distribution varies across different patterns: some themes generally have lower scores or stricter reviews; a fixed 7.0 would cause "deadlocks".
+
+### 6.2 Scheme B (Default)
+
+For the current `pattern_id`, use the score10 of **all papers** under that pattern to calculate:
+
+* `q50`: Median line
+* `q75`: Excellence line (Top 25%)
+
+Passing Conditions:
+
+* (A) At least **2 dimensions have score ≥ q75**
+* AND (B) **avg_score ≥ q50**
+
+Judgment and thresholds are written to:
+
+* `critic_result['audit']['pass']`
+* Also written to `events.jsonl` under `pass_threshold_computed`
+
+Code Location:
+
+* Quantile Calculation: `Paper-KG-Pipeline/scripts/pipeline/review_index.py`
+* Pass Judgment: `Paper-KG-Pipeline/scripts/pipeline/critic.py` (`_compute_pass_decision`)
+
+### 6.3 Fallback When Distribution Data is Insufficient
+
+If the number of papers under the pattern is too small (default < 20):
+
+* Default fallback to **global distribution** (q50/q75 of all papers globally).
+* Can also be configured to fallback to a fixed `PASS_SCORE`.
+
+---
+
+## 7. How to Configure Strictness?
+
+All of the following are controlled via environment variables (no code changes required).
+
+### 7.1 Critic JSON Strict Mode (Most Critical)
+
+| Configuration | Default | Meaning |
+| --- | --- | --- |
+| `I2P_CRITIC_STRICT_JSON` | `1` | 1=Strict: Retries on invalid JSON, terminates run if still fails; 0=Allows neutral fallback |
+| `I2P_CRITIC_JSON_RETRIES` | `2` | Maximum retries after failure (Repair/Re-emit) |
+
+Common Usage:
+
+* Local smoke test without key: `I2P_CRITIC_STRICT_JSON=0`
+* Quality pursuit: Keep `I2P_CRITIC_STRICT_JSON=1`, and configure `SILICONFLOW_API_KEY`
+
+### 7.2 Passing Standard Strictness (Related to Scheme B)
+
+| Configuration | Default | Meaning |
+| --- | --- | --- |
+| `I2P_PASS_MODE` | `two_of_three_q75_and_avg_ge_q50` | Currently implemented Scheme B; other values fallback to fixed PASS_SCORE |
+| `I2P_PASS_MIN_PATTERN_PAPERS` | `20` | Triggers fallback when pattern paper count is below this value |
+| `I2P_PASS_FALLBACK` | `global` | `global`=Use global distribution; `fixed`=Use fixed `PASS_SCORE` |
+
+### 7.3 What is the Use of the Remaining `PASS_SCORE=7.0`?
+
+`PASS_SCORE` is now a **last resort fallback**, used only if you configure `I2P_PASS_FALLBACK=fixed` or when distributions are unavailable.
+
+---
+
+## 8. How to Check Logs to Confirm "Fallback/Failure"?
+
+Every run generates a directory: Repo root `log/run_YYYYMMDD_HHMMSS_<pid>_<rand>/`
+
+Focus on:
+
+* `events.jsonl`
+  * Presence of `critic_fallback_neutral`: Indicates you allowed fallback (strict=0) and neutral fallback was triggered.
+  * Presence of `critic_invalid_output_fatal`: Indicates strict=1 and JSON failure caused termination.
+  * Presence of `pass_threshold_computed`: Records q50/q75, and pass judgment details.
+
+
+* `llm_calls.jsonl`
+  * `simulated=true`: No key, using simulated output.
+  * `ok=false`: Call failed.
+
+
+
+---
+
+## 9. Common Run Commands (Suggested to Copy)
+
+### 9.1 Local Smoke Test Without Key (Allows Fallback, Test Pipeline Only)
+
 ```bash
 I2P_CRITIC_STRICT_JSON=0 python Paper-KG-Pipeline/scripts/idea2story_pipeline.py "test idea"
 ```
 
-### 9.2 质量模式（推荐：严格 + 真实对标）
+### 9.2 Quality Mode (Recommended: Strict + Real Benchmarking)
+
 ```bash
-export SILICONFLOW_API_KEY="你的key"
+export SILICONFLOW_API_KEY="your_key"
 I2P_CRITIC_STRICT_JSON=1 python Paper-KG-Pipeline/scripts/idea2story_pipeline.py "your idea"
 ```
 
-### 9.3 调整通过门槛的“数据不足回退策略”
+### 9.3 Adjusting "Insufficient Data Fallback Strategy" for Passing Threshold
+
 ```bash
-# pattern 数据不足时用 global 分布（默认）
+# Use global distribution when pattern data is insufficient (Default)
 I2P_PASS_FALLBACK=global ...
 
-# pattern 数据不足时回退固定 PASS_SCORE（更保守）
+# Fallback to fixed PASS_SCORE when pattern data is insufficient (More conservative)
 I2P_PASS_FALLBACK=fixed ...
 ```
 
 ---
 
-## 10. 你遇到“为什么分数总在 6.x？”时该怎么排查？
+## 10. How to Troubleshoot "Why is the Score Always Around 6.x?"
 
-常见原因：
-- LLM 没有真实工作（没有配置 `SILICONFLOW_API_KEY`），或者输出 JSON 不合格被 strict 拦截/重试
-- 或者 story 与锚点相比确实只在“中位附近”
+Common Causes:
 
-排查顺序：
-1) 看 `log/run_.../llm_calls.jsonl` 是否有 `simulated=true`
-2) 看 `events.jsonl` 是否出现 `critic_invalid_output` / `critic_fallback_neutral`
-3) 看 `pass_threshold_computed` 的 q50/q75：很多 pattern 的 q75 可能就在 6.x（这很正常，取决于真实分布）
+* LLM is not doing real work (No `SILICONFLOW_API_KEY` configured), or output JSON is invalid and intercepted/retried by strict mode.
+* Or the story is indeed only around the "median" compared to anchors.
 
+Troubleshooting Order:
+
+1. Check `log/run_.../llm_calls.jsonl` for `simulated=true`.
+2. Check `events.jsonl` for `critic_invalid_output` / `critic_fallback_neutral`.
+3. Check `pass_threshold_computed` for q50/q75: q75 for many patterns might naturally be around 6.x (This is normal, depends on real distribution).

@@ -1,194 +1,194 @@
-# Idea2Story Pipeline 文档
+# Idea2Story Pipeline Documentation
 
-## 📋 概述
+## 📋 Overview
 
-本文档详细说明了从用户Idea到可发表Paper Story的完整生成链路,包括Pattern选择、Idea Fusion、Story生成、Critic评审、智能修正机制、参数配置和运行方式。
+This document provides a detailed description of the complete generation pipeline from user Idea to publishable Paper Story, including Pattern selection, Idea Fusion, Story generation, Critic review, intelligent correction mechanism, parameter configuration, and execution methods.
 
 ---
 
-## 1. 系统架构
+## 1. System Architecture
 
-### 1.1 整体流程
+### 1.1 Overall Process
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  【Idea2Story Pipeline 完整流程】                 │
+│              【Idea2Story Pipeline Complete Process】            │
 └─────────────────────────────────────────────────────────────────┘
 
-用户输入Idea
+User Input Idea
     │
     ▼
-【阶段1: Pattern选择与分类】(约1秒)
+【Phase 1: Pattern Selection and Classification】(approx. 1 second)
     │
-    ├─ 召回Top-10 Pattern (来自召回系统)
-    │   └─ 路径1(相似Idea) + 路径2(领域) + 路径3(相似Paper)
+    ├─ Recall Top-10 Patterns (from recall system)
+    │   └─ Path 1 (Similar Idea) + Path 2 (Domain) + Path 3 (Similar Paper)
     │
-    ├─ Pattern多维度分类
-    │   ├─ Stability (稳健型): Rank前3 + Cluster Size≥15
-    │   ├─ Novelty (新颖型): Cluster Size<10
-    │   └─ Cross-Domain (跨域型): 不同Domain来源
+    ├─ Multi-dimensional Pattern classification
+    │   ├─ Stability (Robust): Top 3 ranks + Cluster Size≥15
+    │   ├─ Novelty (Novel): Cluster Size<10
+    │   └─ Cross-Domain: Different Domain sources
     │
-    └─ 选择初始Pattern (优先Stability维度)
-    │
-    ▼
-【阶段2: Story生成】(约1-2分钟)
-    │
-    └─ 基于Pattern生成初稿Story
-        ├─ 使用skeleton_examples作为模板
-        ├─ 注入common_tricks
-        └─ 结构化输出(7个字段)
+    └─ Select initial Pattern (prioritize Stability dimension)
     │
     ▼
-【阶段3: Critic评审】(约30秒)
+【Phase 2: Story Generation】(approx. 1-2 minutes)
     │
-    └─ 多角色评审 (并行)
-        ├─ Methodology Critic: 技术可行性/严谨性
-        ├─ Novelty Critic: 创新性/问题新颖性
-        └─ Storyteller Critic: 叙事连贯性/可读性
+    └─ Generate draft Story based on Pattern
+        ├─ Use skeleton_examples as template
+        ├─ Inject common_tricks
+        └─ Structured output (7 fields)
+    │
+    ▼
+【Phase 3: Critic Review】(approx. 30 seconds)
+    │
+    └─ Multi-role review (parallel)
+        ├─ Methodology Critic: Technical feasibility/rigor
+        ├─ Novelty Critic: Innovation/problem novelty
+        └─ Storyteller Critic: Narrative coherence/readability
         │
-        └─ 计算平均分 (avg_score)
+        └─ Calculate average score (avg_score)
     │
     ▼
-【阶段4: 判断分支】
+【Phase 4: Decision Branch】
     │
-    ├─【判断1】评分 >= 7.0?
-    │   ├─【是】→ 进入阶段5: RAG查重
-    │   └─【否】→ 进入阶段4.1或4.2
+    ├─【Decision 1】Score >= 7.0?
+    │   ├─【Yes】→ Enter Phase 5: RAG deduplication
+    │   └─【No】→ Enter Phase 4.1 or 4.2
     │
-    ├─【判断2】新颖性停滞? (novelty_score <= last + 0.5)
-    │   ├─【是】→ 阶段4.1: 新颖性模式
-    │   └─【否】→ 阶段4.2: 普通修正
+    ├─【Decision 2】Novelty stagnation? (novelty_score <= last + 0.5)
+    │   ├─【Yes】→ Phase 4.1: Novelty mode
+    │   └─【No】→ Phase 4.2: Normal correction
     │
     ├─────────────────────────────────────────────────────────────┐
-    │              【阶段4.1: 新颖性模式】(3-10分钟)               │
+    │              [Phase 4.1: Novelty Mode](3-10 minutes)        │
     ├─────────────────────────────────────────────────────────────┤
-    │                                                               │
-    │  遍历Novelty维度的Pattern (最多10个)                         │
-    │      │                                                        │
+    │                                                             │
+    │  Traverse Novelty dimension Patterns (max 10)               │
+    │      │                                                      │
     │      ├─ For each novelty_pattern:                           │
-    │      │                                                        │
-    │      ├─ 1. Idea Fusion (概念融合)                           │
-    │      │     ├─ 输入: user_idea + current_story + pattern     │
-    │      │     ├─ LLM分析: 概念A, 概念B, 融合方式               │
-    │      │     └─ 输出: fused_idea (融合后的新Idea)             │
-    │      │                                                        │
-    │      ├─ 2. Story Reflection (质量评估)                      │
-    │      │     ├─ 输入: fused_idea + current_story              │
-    │      │     ├─ 评估4个维度                                   │
-    │      │     │   ├─ concept_unity: 概念统一性 [0-10]          │
-    │      │     │   ├─ technical_soundness: 技术可行性 [0-10]    │
-    │      │     │   ├─ novelty_level: 新颖性 [0-10]              │
-    │      │     │   └─ narrative_clarity: 叙事清晰度 [0-10]      │
-    │      │     └─ 输出: fusion_score + suggestions              │
-    │      │                                                        │
-    │      ├─ 3. 重新生成Story                                    │
-    │      │     └─ 基于fused_idea + reflection_guidance         │
-    │      │                                                        │
-    │      ├─ 4. Critic评审                                       │
-    │      │     └─ 获取新的avg_score                             │
-    │      │                                                        │
-    │      ├─ 5. 分数退化检测                                     │
-    │      │     └─ 如果 avg_score < last_score - 0.1:           │
-    │      │         ├─ 回滚到上一版本                            │
-    │      │         ├─ 标记Pattern失败                           │
-    │      │         └─ 跳过该Pattern                             │
-    │      │                                                        │
-    │      ├─ 6. 记录最佳结果                                     │
-    │      │     └─ 如果 avg_score > best_score:                 │
-    │      │         └─ 更新best_score和best_story                │
-    │      │                                                        │
-    │      ├─ 7. 通过检查                                         │
-    │      │     └─ 如果 avg_score >= 7.0:                       │
-    │      │         └─ 提前结束,进入阶段5                        │
-    │      │                                                        │
-    │      └─ 循环结束                                            │
-    │           │                                                   │
-    │           └─ 兜底: 返回best_story (最高分版本)              │
-    │                                                               │
+    │      │                                                      │
+    │      ├─ 1. Idea Fusion (concept fusion)                     │
+    │      │     ├─ Input: user_idea + current_story + pattern    │
+    │      │     ├─ LLM analysis: Concept A, Concept B, fusion    │
+    │      │     └─ Output: fused_idea (fused new Idea)           │
+    │      │                                                      │
+    │      ├─ 2. Story Reflection (quality assessment)            │
+    │      │     ├─ Input: fused_idea + current_story             │
+    │      │     ├─ Assess 4 dimensions                           │
+    │      │     │   ├─ concept_unity: Concept unity [0-10]       │
+    │      │     │   ├─ technical_soundness: Technical feasibility│
+    │      │     │   ├─ novelty_level: Novelty [0-10]             │
+    │      │     │   └─ narrative_clarity: Narrative clarity      │
+    │      │     └─ Output: fusion_score + suggestions            │
+    │      │                                                      │
+    │      ├─ 3. Regenerate Story                                 │
+    │      │     └─ Based on fused_idea + reflection_guidance     │
+    │      │                                                      │
+    │      ├─ 4. Critic Review                                    │
+    │      │     └─ Get new avg_score                             │
+    │      │                                                      │
+    │      ├─ 5. Score Degradation Detection                      │
+    │      │     └─ If avg_score < last_score - 0.1:              │
+    │      │         ├─ Rollback to previous version              │
+    │      │         ├─ Mark Pattern as failed                    │
+    │      │         └─ Skip this Pattern                         │
+    │      │                                                      │
+    │      ├─ 6. Record Best Result                               │
+    │      │     └─ If avg_score > best_score:                    │
+    │      │         └─ Update best_score and best_story          │
+    │      │                                                      │
+    │      ├─ 7. Pass Check                                       │
+    │      │     └─ If avg_score >= 7.0:                          │
+    │      │         └─ End early, enter Phase 5                  │
+    │      │                                                      │
+    │      └─ Loop End                                            │
+    │           │                                                 │
+    │           └─ Fallback: Return best_story (highest score)    │
+    │                                                             │
     └─────────────────────────────────────────────────────────────┘
     │
     ├─────────────────────────────────────────────────────────────┐
-    │              【阶段4.2: 普通修正】(1-2分钟)                  │
+    │              【Phase 4.2: Normal Correction】(1-2 minutes)   │
     ├─────────────────────────────────────────────────────────────┤
-    │                                                               │
-    │  智能注入互补Tricks                                          │
-    │      │                                                        │
-    │      ├─ 分析Critic反馈                                      │
-    │      │   ├─ novelty_score < 6.0 → 缺新颖性                 │
-    │      │   ├─ methodology_score < 6.0 → 缺稳健性              │
-    │      │   └─ storyteller_score < 6.0 → 缺叙事性              │
-    │      │                                                        │
-    │      ├─ 选择互补Pattern                                     │
-    │      │   ├─ 缺新颖性 → 长尾注入 (Rank 5-10, Novelty类)     │
-    │      │   ├─ 缺稳健性 → 头部注入 (Rank 1-3, Stability类)    │
-    │      │   └─ 缺叙事性 → 跨域注入 (Cross-Domain类)            │
-    │      │                                                        │
-    │      └─ 返回阶段2 (重新生成Story)                           │
-    │                                                               │
+    │                                                             │
+    │  Intelligently inject complementary Tricks                  │
+    │      │                                                      │
+    │      ├─ Analyze Critic feedback                             │
+    │      │   ├─ novelty_score < 6.0 → Lacks novelty             │
+    │      │   ├─ methodology_score < 6.0 → Lacks robustness      │
+    │      │   └─ storyteller_score < 6.0 → Lacks narrative       │
+    │      │                                                      │
+    │      ├─ Select complementary Pattern                        │
+    │      │   ├─ Lacks novelty → Long-tail injection (Rank 5-10) │
+    │      │   ├─ Lacks robustness → Head injection (Rank 1-3)    │
+    │      │   └─ Lacks narrative → Cross-domain injection        │
+    │      │                                                      │
+    │      └─ Return to Phase 2 (regenerate Story)                │
+    │                                                             │
     └─────────────────────────────────────────────────────────────┘
     │
     ▼
-【阶段5: RAG查重】(约30秒)
+【Phase 5: RAG Deduplication】(approx. 30 seconds)
     │
-    ├─ 提取关键方法 (techniques)
+    ├─ Extract key methods (techniques)
     │
-    ├─ 检索近3年顶会论文 (Embedding召回)
+    ├─ Retrieve recent 3-year top conference papers (Embedding recall)
     │
-    ├─ 计算相似度
+    ├─ Calculate similarity
     │
-    └─ 判断: 相似度 > 0.75?
-        ├─【否】→ 输出Final Story ✅
-        └─【是】→ Pivot规避
-                  ├─ 分析撞车点
-                  ├─ 生成约束 (禁用技术/领域迁移)
-                  └─ 返回阶段2
+    └─ Determine: Similarity > 0.75?
+        ├─【No】→ Output Final Story ✅
+        └─【Yes】→ Pivot avoidance
+                  ├─ Analyze collision points
+                  ├─ Generate constraints (disable tech/domain migration)
+                  └─ Return to Phase 2
     │
     ▼
-输出Final Story (JSON格式)
+Output Final Story (JSON format)
 ```
 
-**流程说明**:
-- **阶段1-2**: 基础生成链路
-- **阶段3**: 质量评估
-- **阶段4**: 核心修正机制(两种模式)
-  - **新颖性模式**: 深度探索,Fusion+Reflection
-  - **普通修正**: 快速注入,互补增强
-- **阶段5**: 查重验证
+**Process Description**:
+- **Phase 1-2**: Basic generation pipeline
+- **Phase 3**: Quality assessment
+- **Phase 4**: Core correction mechanism (two modes)
+  - **Novelty Mode**: Deep exploration, Fusion+Reflection
+  - **Normal Correction**: Quick injection, complementary enhancement
+- **Phase 5**: Deduplication verification
 
-### 1.2 核心模块
+### 1.2 Core Modules
 
-| 模块 | 文件 | 作用 |
-|------|------|------|
-| **Pattern Selector** | `pattern_selector.py` | 多维度Pattern分类与排序 |
-| **Story Generator** | `story_generator.py` | 结构化Story生成 |
-| **Idea Fusion** | `planner.py` | 融合新Pattern生成创新Idea |
-| **Story Reflector** | `story_reflector.py` | 反思融合质量 |
-| **Multi-Agent Critic** | `critic.py` | 三角色评审 |
-| **Refinement Engine** | `refinement.py` | 智能修正与注入 |
-| **RAG Verifier** | `verifier.py` | 查重与规避 |
-| **Pipeline Manager** | `manager.py` | 流程编排 |
+| Module | File | Purpose |
+|--------|------|---------|
+| **Pattern Selector** | `pattern_selector.py` | Multi-dimensional Pattern classification and ranking |
+| **Story Generator** | `story_generator.py` | Structured Story generation |
+| **Idea Fusion** | `planner.py` | Fuse new Patterns to generate innovative Ideas |
+| **Story Reflector** | `story_reflector.py` | Reflect on fusion quality |
+| **Multi-Agent Critic** | `critic.py` | Three-role review |
+| **Refinement Engine** | `refinement.py` | Intelligent correction and injection |
+| **RAG Verifier** | `verifier.py` | Deduplication and avoidance |
+| **Pipeline Manager** | `manager.py` | Process orchestration |
 
 ---
 
-## 2. Pattern选择与分类
+## 2. Pattern Selection and Classification
 
-### 2.1 多维度分类
+### 2.1 Multi-dimensional Classification
 
-**目标**: 将召回的Top-10 Pattern按3个维度分类,确保多样性。
+**Objective**: Classify recalled Top-10 Patterns into 3 dimensions to ensure diversity.
 
-**维度定义**:
+**Dimension Definitions**:
 
-| 维度 | 定义 | 选择标准 | 作用 |
-|------|------|---------|------|
-| **Stability** | 稳健型 | Rank Top-3 + Cluster Size ≥ 15 | 保证基础质量,降低风险 |
-| **Novelty** | 新颖型 | Cluster Size < 10 | 提升创新性 |
-| **Cross-Domain** | 跨域型 | 来自路径2/3 + Domain不同于Top-1 | 引入跨领域视角 |
+| Dimension | Definition | Selection Criteria | Purpose |
+|-----------|------------|-------------------|---------|
+| **Stability** | Robust | Top 3 ranks + Cluster Size ≥ 15 | Ensure basic quality, reduce risk |
+| **Novelty** | Novel | Cluster Size < 10 | Enhance innovation |
+| **Cross-Domain** | Cross-domain | From Path 2/3 + Different Domain from Top-1 | Introduce cross-domain perspective |
 
-**算法**:
+**Algorithm**:
 
 ```python
 def classify_patterns(recalled_patterns, user_idea):
-    """多维度分类Pattern"""
+    """Multi-dimensional Pattern classification"""
     classified = {
         'stability': [],
         'novelty': [],
@@ -202,16 +202,16 @@ def classify_patterns(recalled_patterns, user_idea):
             'cluster_size': pattern_info.get('size', 0)
         }
 
-        # 维度1: Stability (稳健型)
+        # Dimension 1: Stability (Robust)
         if rank <= 2 and metadata['cluster_size'] >= 15:
             classified['stability'].append((pattern_id, pattern_info, metadata))
 
-        # 维度2: Novelty (新颖型)
+        # Dimension 2: Novelty (Novel)
         if metadata['cluster_size'] < 10:
             classified['novelty'].append((pattern_id, pattern_info, metadata))
 
-        # 维度3: Cross-Domain (跨域型)
-        if rank >= 3:  # 来自路径2/3
+        # Dimension 3: Cross-Domain
+        if rank >= 3:  # From Path 2/3
             user_domain = extract_domain(user_idea)
             pattern_domain = pattern_info.get('domain', '')
             if pattern_domain != user_domain:
@@ -220,73 +220,73 @@ def classify_patterns(recalled_patterns, user_idea):
     return classified
 ```
 
-### 2.2 Pattern选择策略
+### 2.2 Pattern Selection Strategy
 
 ```python
-# 优先级顺序
-1. Stability 维度第一个 (保证基础质量)
-2. Novelty 维度第一个 (如果stability为空)
-3. Cross-Domain 维度第一个 (兜底)
+# Priority order
+1. First from Stability dimension (ensure basic quality)
+2. First from Novelty dimension (if stability is empty)
+3. First from Cross-Domain dimension (fallback)
 ```
 
 ---
 
-## 3. Story生成机制
+## 3. Story Generation Mechanism
 
-### 3.1 Story数据结构
+### 3.1 Story Data Structure
 
 ```json
 {
-  "title": "论文标题",
-  "abstract": "摘要(150-200词)",
-  "problem_definition": "明确的问题定义",
-  "gap_pattern": "研究缺口描述",
+  "title": "Paper title",
+  "abstract": "Abstract (150-200 words)",
+  "problem_definition": "Clear problem definition",
+  "gap_pattern": "Research gap description",
   "method_skeleton": {
-    "overview": "方法概述",
-    "core_components": ["组件1", "组件2", "组件3"],
-    "technical_details": "技术细节"
+    "overview": "Method overview",
+    "core_components": ["Component 1", "Component 2", "Component 3"],
+    "technical_details": "Technical details"
   },
   "innovation_claims": [
-    "贡献点1",
-    "贡献点2",
-    "贡献点3"
+    "Contribution 1",
+    "Contribution 2",
+    "Contribution 3"
   ],
   "experiments_plan": {
-    "datasets": ["数据集1", "数据集2"],
-    "baselines": ["基线方法1", "基线方法2"],
-    "metrics": ["评估指标1", "指标2"],
-    "ablation_studies": "消融实验设计"
+    "datasets": ["Dataset 1", "Dataset 2"],
+    "baselines": ["Baseline method 1", "Baseline method 2"],
+    "metrics": ["Evaluation metric 1", "Metric 2"],
+    "ablation_studies": "Ablation experiment design"
   }
 }
 ```
 
-### 3.2 生成Prompt构建
+### 3.2 Generation Prompt Construction
 
-**初稿生成Prompt**:
+**Initial Generation Prompt**:
 ```python
 def _build_initial_prompt(user_idea, pattern_info):
     prompt = f"""
-你是一个顶级AI研究员。请基于以下信息生成一篇ICLR水平的论文Story。
+You are a top-tier AI researcher. Please generate an ICLR-level paper Story based on the following information.
 
-【用户Idea】
+【User Idea】
 {user_idea}
 
-【Pattern指导】
-名称: {pattern_info['name']}
-代表性想法: {pattern_info['llm_enhanced_summary']['representative_ideas']}
-常见问题: {pattern_info['llm_enhanced_summary']['common_problems']}
-解决方法: {pattern_info['llm_enhanced_summary']['solution_approaches']}
-故事框架: {pattern_info['llm_enhanced_summary']['story']}
+【Pattern Guidance】
+Name: {pattern_info['name']}
+Representative ideas: {pattern_info['llm_enhanced_summary']['representative_ideas']}
+Common problems: {pattern_info['llm_enhanced_summary']['common_problems']}
+Solution approaches: {pattern_info['llm_enhanced_summary']['solution_approaches']}
+Story framework: {pattern_info['llm_enhanced_summary']['story']}
 
-【任务】
-生成完整的论文Story(JSON格式),包含:
-- title: 吸引人的标题
-- abstract: 150-200词摘要
-- problem_definition: 明确问题定义
-- gap_pattern: 研究缺口
-- method_skeleton: 方法骨架(overview + core_components + technical_details)
-- innovation_claims: 3个核心贡献
-- experiments_plan: 实验设计(datasets/baselines/metrics/ablation_studies)
+【Task】
+Generate complete paper Story (JSON format), including:
+- title: Attractive title
+- abstract: 150-200 word abstract
+- problem_definition: Clear problem definition
+- gap_pattern: Research gap
+- method_skeleton: Method skeleton (overview + core_components + technical_details)
+- innovation_claims: 3 core contributions
+- experiments_plan: Experiment design (datasets/baselines/metrics/ablation_studies)
 """
     return prompt
 ```
@@ -295,546 +295,662 @@ def _build_initial_prompt(user_idea, pattern_info):
 ```python
 def _build_refinement_prompt(story, critic_result, fused_idea, reflection_guidance):
     prompt = f"""
-【当前Story】
+【Current Story】
 {json.dumps(story, indent=2)}
 
-【Critic评审结果】
+【Critic Review Results】
 Methodology: {critic_result['methodology']['score']}/10
-  问题: {critic_result['methodology']['issues']}
+  Issues: {critic_result['methodology']['issues']}
 
 Novelty: {critic_result['novelty']['score']}/10
-  问题: {critic_result['novelty']['issues']}
+  Issues: {critic_result['novelty']['issues']}
 
-【融合创新指导】
+【Fusion Innovation Guidance】
 {format_fused_idea(fused_idea)}
 
-【Reflection建议】
+【Reflection Suggestions】
 {format_reflection_guidance(reflection_guidance)}
 
 ⚠️ 【HOW TO USE Fused Idea Guidance】
-- **Title & Abstract**: 必须反映融合后的概念创新,而非技术堆砌
-- **Problem Framing**: 采用融合idea中的新问题视角
-- **Gap Pattern**: 解释为什么现有方法缺乏这种概念统一性
-- **Innovation Claims**: 框架为"transforming/reframing X from Y to Z"
-- **Method**: 展示技术如何共同演化(CO-EVOLVE)而非共存(CO-EXIST)
+- **Title & Abstract**: Must reflect conceptual innovation from fusion, not technical stacking
+- **Problem Framing**: Adopt new problem perspective from fused idea
+- **Gap Pattern**: Explain why existing methods lack this conceptual unity
+- **Innovation Claims**: Frame as "transforming/reframing X from Y to Z"
+- **Method**: Show how techniques CO-EVOLVE together rather than CO-EXIST
 
-【任务】
-修正Story,重点解决上述问题,生成改进版JSON。
+【Task】
+Correct Story, focusing on solving the above issues, generate improved JSON.
 """
     return prompt
 ```
 
----
-
-## 4. Idea Fusion机制
-
-### 4.1 融合目标
-
-**问题**: 直接拼接Pattern会导致"技术堆砌",缺乏概念统一性。
-
-**目标**: 生成一个**有机融合**的新Idea,使新Pattern与原Idea在**概念层面**统一。
-
-### 4.2 Fusion Prompt
+### 3.3 LLM API Configuration
 
 ```python
-def plan_idea_fusion(user_idea, current_story, new_pattern_info, critic_issues):
+# API endpoint
+LLM_API_URL = "https://api.siliconflow.cn/v1/chat/completions"
+
+# Model selection
+LLM_MODEL = "Qwen/Qwen3-14B"
+
+# API key
+LLM_API_KEY = os.getenv("SILICONFLOW_API_KEY")
+```
+
+---
+
+## 4. Idea Fusion Mechanism
+
+### 4.1 Design Philosophy
+
+**Core Issue**: Simple Pattern injection leads to "technology stacking" rather than "concept integration"
+
+**Solution**: Idea Fusion - conceptual fusion at the idea level
+
+**Fusion Formula**:
+```
+Fused Idea = Concept A ⊗ Concept B
+```
+
+### 4.2 Fusion Process
+
+```
+User Idea + Current Story + New Pattern
+    ↓
+【Phase 1: Concept Extraction】
+    ├─ Extract Concept A (from user_idea)
+    ├─ Extract Concept B (from pattern)
+    └─ Identify connection point
+    ↓
+【Phase 2: Fusion Method Analysis】
+    ├─ Analyze how to integrate both concepts
+    ├─ Find conceptual commonalities
+    └─ Design unified framework
+    ↓
+【Phase 3: Generate Fused Idea】
+    └─ Output: New unified research idea
+```
+
+### 4.3 Fusion Prompt Design
+
+```python
+def _build_fusion_prompt(user_idea, current_story, pattern_info):
     prompt = f"""
-你是一个创新研究规划师。请分析如何将新Pattern融合到现有研究中。
+You are a creative research strategist. Your task is to FUSE two concepts into a unified research idea.
 
-【当前研究】
-Idea: {user_idea}
-Story: {extract_key_points(current_story)}
+【User's Original Idea】
+{user_idea}
 
-【新Pattern】
-{format_pattern(new_pattern_info)}
+【Current Story Abstract】
+{current_story['abstract']}
 
-【Critic指出的问题】
-{critic_issues}
+【New Pattern to Integrate】
+Name: {pattern_info['name']}
+Representative Ideas: {pattern_info['llm_enhanced_summary']['representative_ideas']}
+Solution Approaches: {pattern_info['llm_enhanced_summary']['solution_approaches']}
 
-【融合任务】
-生成一个融合后的Idea,要求:
+【Critical Task】
+Perform CONCEPTUAL FUSION (not technical stacking):
+1. Extract Concept A (core concept from user's idea)
+2. Extract Concept B (core concept from pattern)
+3. Analyze how these concepts can be UNIFIED
+4. Generate a NEW fused idea that treats them as ONE coherent concept
 
-1. **概念统一**: 找到新Pattern与原Idea的概念连接点
-2. **问题重构**: 重新框架问题,使新Pattern成为自然解决方案
-3. **创新点**: 明确融合后的独特贡献
-
-返回JSON:
+Return JSON format:
 {
-  "fused_core_idea": "融合后的核心想法(单句话)",
-  "conceptual_bridge": "概念桥梁:如何连接原Idea和新Pattern",
-  "reframed_problem": "重构后的问题定义",
-  "innovation_angle": "独特创新点",
-  "implementation_hints": ["实现提示1", "提示2"]
+  "concept_a": "Core concept from user idea",
+  "concept_b": "Core concept from pattern",
+  "fusion_approach": "How to unify these concepts",
+  "fused_idea": "The unified research idea (2-3 sentences)",
+  "expected_benefits": "Why this fusion creates novelty"
 }
 """
     return prompt
 ```
 
-### 4.3 示例
+### 4.4 Fusion Quality Criteria
 
-**原Idea**:
-```
-使用大模型做数据增强
-```
-
-**新Pattern**: 课程学习(Curriculum Learning)
-
-**Fusion结果**:
-```json
+```python
+# Good fusion (score > 0.65):
 {
-  "fused_core_idea": "基于LLM生成的难度自适应课程学习框架",
-  "conceptual_bridge": "LLM不仅生成数据,更重要的是可以评估样本难度,从而构建个性化学习路径",
-  "reframed_problem": "如何让模型像人类一样从易到难地学习LLM生成的伪标签数据",
-  "innovation_angle": "首次将LLM的生成能力和难度评估能力统一在课程学习框架中",
-  "implementation_hints": [
-    "LLM为每个生成样本打上难度标签",
-    "设计难度感知的样本调度器",
-    "渐进式训练策略"
+  "concept_a": "Adversarial training for robustness",
+  "concept_b": "Multi-task learning for generalization",
+  "fusion_approach": "Treat adversarial examples as auxiliary tasks",
+  "fused_idea": "Adversarial Multi-Task Learning framework where adversarial 
+                perturbations are reframed as meta-learning tasks that enhance 
+                model's ability to generalize across distribution shifts"
+}
+
+# Bad fusion (score < 0.65):
+{
+  "concept_a": "Graph neural networks",
+  "concept_b": "Attention mechanism",
+  "fusion_approach": "Add attention layers to GNN",
+  "fused_idea": "Use attention mechanism in graph neural networks"
+}
+```
+
+---
+
+## 5. Story Reflection Mechanism
+
+### 5.1 Reflection Objective
+
+After Idea Fusion, evaluate whether the generated Story truly achieves conceptual integration rather than technical stacking.
+
+### 5.2 Reflection Dimensions
+
+```python
+reflection_dimensions = {
+    'concept_unity': {
+        'description': 'Are concepts treated as unified whole?',
+        'good_sign': 'Concepts evolve together, mutual definition',
+        'bad_sign': 'Concepts exist independently, simple combination'
+    },
+    'technical_soundness': {
+        'description': 'Is technical implementation feasible?',
+        'good_sign': 'Clear technical path, reasonable assumptions',
+        'bad_sign': 'Vague implementation, unrealistic assumptions'
+    },
+    'novelty_level': {
+        'description': 'Does fusion create new perspective?',
+        'good_sign': 'Problem reframing, new understanding',
+        'bad_sign': 'Incremental improvement, no new insights'
+    },
+    'narrative_clarity': {
+        'description': 'Is story narrative clear and convincing?',
+        'good_sign': 'Smooth logic, compelling motivation',
+        'bad_sign': 'Disconnected logic, unclear motivation'
+    }
+}
+```
+
+### 5.3 Reflection Prompt
+
+```python
+def _build_reflection_prompt(fused_idea, current_story):
+    prompt = f"""
+You are a critical reviewer. Evaluate whether the Story successfully achieves 
+CONCEPTUAL FUSION rather than technical stacking.
+
+【Fused Idea】
+{fused_idea['fused_idea']}
+Concept A: {fused_idea['concept_a']}
+Concept B: {fused_idea['concept_b']}
+
+【Current Story】
+Title: {current_story['title']}
+Abstract: {current_story['abstract']}
+Method: {current_story['method_skeleton']['overview']}
+
+【Evaluation Task】
+Score each dimension [0-10]:
+1. concept_unity: Are concepts unified whole or separate parts?
+2. technical_soundness: Is technical implementation feasible?
+3. novelty_level: Does fusion create new perspective?
+4. narrative_clarity: Is story logic clear?
+
+Return JSON:
+{
+  "scores": {
+    "concept_unity": score,
+    "technical_soundness": score,
+    "novelty_level": score,
+    "narrative_clarity": score
+  },
+  "fusion_quality": average_score / 10.0,  # [0, 1]
+  "suggestions": [
+    "Specific improvement suggestion 1",
+    "Specific improvement suggestion 2"
   ]
 }
-```
-
----
-
-## 5. Story Reflection机制
-
-### 5.1 反思目标
-
-**问题**: Fusion生成了融合Idea,但Story生成器可能:
-- 未充分理解融合意图
-- 生成了"生硬拼接"而非"有机融合"
-
-**目标**: 在Story生成后,反思融合质量,评估是否真正实现了概念统一。
-
-### 5.2 Reflection流程
-
-```python
-def reflect_on_fusion(fused_idea, generated_story):
-    """反思融合质量"""
-    # 1. 分析融合点
-    fusion_points = analyze_fusion_points(fused_idea, generated_story)
-
-    # 2. 检查连贯性
-    coherence = check_conceptual_coherence(fusion_points)
-
-    # 3. 评估融合丰富度
-    richness = evaluate_fusion_richness(fused_idea, generated_story)
-
-    # 4. 计算质量分数
-    quality = 0.4 * coherence + 0.4 * richness + 0.2 * has_fusion_idea_bonus
-
-    # 5. 生成改善建议
-    suggestions = generate_improvement_suggestions(quality, fusion_points)
-
-    return {
-        'fusion_quality': quality,
-        'fusion_points': fusion_points,
-        'coherence_score': coherence,
-        'fusion_richness': richness,
-        'fusion_suggestions': suggestions
-    }
-```
-
-### 5.3 质量评分
-
-```python
-fusion_quality = 0.4 × 连贯性 + 0.4 × 融合丰富度 + 0.2 × Fusion Idea奖励
-
-# 连贯性: 融合点在Story各部分是否连贯出现
-coherence_score = len(连贯的融合点) / len(所有融合点)
-
-# 融合丰富度: Story中多少部分体现了融合
-richness_score = len(体现融合的Story部分) / len(Story总部分)
-
-# Fusion Idea奖励: 是否使用了fused_idea指导
-fusion_idea_bonus = 1.0 if fused_idea else 0.5
-```
-
-**阈值**: `fusion_quality >= 0.65` 认为融合成功
-
----
-
-## 6. Critic评审机制
-
-### 6.1 三角色评审
-
-| 角色 | 关注点 | 评分标准 |
-|------|--------|---------|
-| **Reviewer A** (Methodology) | 技术合理性、实验完整性 | 方法可行性、实验设计 |
-| **Reviewer B** (Novelty) | 创新性、贡献独特性 | 问题新颖度、方法创新度 |
-| **Reviewer C** (Storyteller) | 叙事完整性、逻辑连贯性 | 结构完整、逻辑清晰 |
-
-### 6.2 Critic Prompt
-
-```python
-def build_critic_prompt(story, role):
-    if role == "methodology":
-        focus = """
-评审重点:
-1. 方法是否技术合理?
-2. 实验设计是否完整?
-3. 是否存在技术风险?
-"""
-    elif role == "novelty":
-        focus = """
-评审重点:
-1. 问题定义是否新颖?
-2. 方法是否有独特创新?
-3. 是否仅是技术堆砌?
-"""
-    elif role == "storyteller":
-        focus = """
-评审重点:
-1. 逻辑是否连贯?
-2. 叙事是否完整?
-3. 读者能否理解?
-"""
-
-    prompt = f"""
-你是一个ICLR审稿人,专注于{role}。
-
-【论文Story】
-{json.dumps(story, indent=2)}
-
-{focus}
-
-【任务】
-返回JSON评审结果:
-{{
-  "score": 7,  # 1-10分
-  "issues": ["问题1", "问题2"],
-  "suggestions": ["建议1", "建议2"]
-}}
 """
     return prompt
 ```
 
-### 6.3 通过标准
+### 5.4 Quality Threshold
 
 ```python
-PASS_SCORE = 7.0
+FUSION_QUALITY_THRESHOLD = 0.65  # Minimum acceptable fusion quality
 
-# 所有三个维度的平均分 >= 7.0
-avg_score = (methodology_score + novelty_score + storyteller_score) / 3
-if avg_score >= PASS_SCORE:
-    return "PASS"
-else:
-    return "FAIL"
+if reflection_result['fusion_quality'] < FUSION_QUALITY_THRESHOLD:
+    # Skip this Pattern, try next
+    continue
 ```
 
 ---
 
-## 7. 智能修正机制
+## 6. Multi-Agent Critic System
 
-### 7.1 新颖性模式
+### 6.1 Three-Role Design
 
-**触发条件**:
+| Role | Evaluation Focus | Key Metrics |
+|------|-----------------|-------------|
+| **Methodology Critic** | Technical feasibility, methodological rigor | methodology_score [0-10] |
+| **Novelty Critic** | Innovation level, problem novelty | novelty_score [0-10] |
+| **Storyteller Critic** | Narrative coherence, readability | storyteller_score [0-10] |
+
+### 6.2 Critic Prompts
+
+**Methodology Critic**:
 ```python
-# 新颖性分数停滞
-if novelty_score <= last_novelty_score + 0.5:
-    activate_novelty_mode()
+def _build_methodology_prompt(story):
+    prompt = f"""
+You are a rigorous methodology reviewer. Evaluate the technical soundness.
+
+【Story】
+{format_story(story)}
+
+【Evaluation Criteria】
+- Technical feasibility: Is method implementable?
+- Methodological rigor: Are experimental designs sound?
+- Assumptions: Are assumptions reasonable?
+
+Score [0-10] and provide specific issues.
+"""
+    return prompt
 ```
 
-**工作流程**:
+**Novelty Critic**:
 ```python
-def novelty_mode(ranked_patterns):
-    """新颖性模式: 遍历所有novelty维度的Pattern"""
-    novelty_patterns = ranked_patterns['novelty']
-    best_score = 0
-    best_story = None
+def _build_novelty_prompt(story):
+    prompt = f"""
+You are an innovation-focused reviewer. Evaluate the novelty.
 
-    for pattern in novelty_patterns[:NOVELTY_MODE_MAX_PATTERNS]:
+【Story】
+{format_story(story)}
+
+【Evaluation Criteria】
+- Problem novelty: Is problem perspective new?
+- Methodological innovation: Does solution have unique aspects?
+- Contribution significance: Is contribution substantial?
+
+Score [0-10] and provide specific issues.
+"""
+    return prompt
+```
+
+**Storyteller Critic**:
+```python
+def _build_storyteller_prompt(story):
+    prompt = f"""
+You are a narrative quality reviewer. Evaluate the storytelling.
+
+【Story】
+{format_story(story)}
+
+【Evaluation Criteria】
+- Logical coherence: Does narrative flow smoothly?
+- Motivation clarity: Is motivation compelling?
+- Readability: Is expression clear?
+
+Score [0-10] and provide specific issues.
+"""
+    return prompt
+```
+
+### 6.3 Aggregated Evaluation
+
+```python
+def aggregate_critic_results(methodology, novelty, storyteller):
+    """Aggregate three critics' evaluations"""
+    avg_score = (methodology['score'] + 
+                novelty['score'] + 
+                storyteller['score']) / 3.0
+
+    result = {
+        'avg_score': avg_score,
+        'pass': avg_score >= 7.0,
+        'methodology': methodology,
+        'novelty': novelty,
+        'storyteller': storyteller
+    }
+
+    return result
+```
+
+---
+
+## 7. Intelligent Correction Mechanism
+
+### 7.1 Decision Tree
+
+```
+Critic Review → avg_score < 7.0?
+    │
+    ├─【No】→ Pass, enter RAG deduplication
+    │
+    └─【Yes】→ Need correction
+          │
+          ├─【Decision】Novelty stagnation?
+          │   (novelty_score <= last_novelty + 0.5)
+          │
+          ├─【Yes】→ Novelty Mode
+          │   └─ Traverse Novelty Patterns
+          │       ├─ Idea Fusion
+          │       ├─ Story Reflection
+          │       ├─ Regenerate Story
+          │       ├─ Critic Review
+          │       └─ Check pass/score degradation
+          │
+          └─【No】→ Normal Correction
+              └─ Analyze Critic feedback
+                  ├─ novelty_score < 6.0 → Inject Novelty Pattern
+                  ├─ methodology_score < 6.0 → Inject Stability Pattern
+                  └─ storyteller_score < 6.0 → Inject Cross-Domain Pattern
+```
+
+### 7.2 Novelty Mode
+
+**Trigger Condition**:
+```python
+if iteration > 1:
+    novelty_improvement = current_novelty - last_novelty
+    if novelty_improvement <= 0.5:
+        # Trigger novelty mode
+        enter_novelty_mode = True
+```
+
+**Execution Process**:
+```python
+def novelty_mode_iteration(novelty_patterns):
+    """Novelty mode: deep exploration"""
+    for pattern in novelty_patterns[:10]:  # Max 10 patterns
         # 1. Idea Fusion
-        fused_idea = plan_idea_fusion(user_idea, current_story, pattern)
+        fused_idea = idea_fusion(user_idea, current_story, pattern)
 
         # 2. Story Reflection
-        reflection_result = reflect_on_fusion(fused_idea, current_story)
+        reflection = story_reflection(fused_idea, current_story)
+        if reflection['fusion_quality'] < 0.65:
+            continue  # Skip low-quality fusion
 
-        # 3. 生成终稿Story
-        new_story = generate_story(
-            pattern,
-            fused_idea=fused_idea,
-            reflection_guidance=reflection_result['fusion_suggestions']
-        )
+        # 3. Regenerate Story
+        new_story = generate_story(fused_idea, reflection['suggestions'])
 
-        # 4. Critic评审
-        critic_result = critic.review(new_story)
+        # 4. Critic Review
+        critic_result = multi_agent_critic(new_story)
 
-        # 5. 分数退化检测
-        if critic_result['avg_score'] < last_avg_score - 0.1:
-            # 回滚
-            rollback()
-            mark_failure(pattern)
+        # 5. Score Degradation Detection
+        if critic_result['avg_score'] < last_score - 0.1:
+            # Rollback
+            current_story = rollback_to_previous()
+            pattern_failure_map[pattern_id] = True
             continue
 
-        # 6. 记录最高分
+        # 6. Record Best Result
         if critic_result['avg_score'] > best_score:
-            best_score = critic_result['avg_score']
             best_story = new_story
+            best_score = critic_result['avg_score']
 
-        # 7. 通过检查
-        if critic_result['avg_score'] >= PASS_SCORE:
-            return new_story
+        # 7. Pass Check
+        if critic_result['pass']:
+            return new_story, critic_result
 
-    # 8. 兜底: 返回最高分版本
-    return best_story
+    # Fallback: return best version
+    return best_story, best_critic_result
 ```
 
-### 7.2 分数退化回滚
+### 7.3 Normal Correction
 
-**检测条件**:
+**Injection Strategy**:
 ```python
-# 任一维度分数下降超过0.1
-if (new_methodology_score < old_methodology_score - 0.1 or
-    new_novelty_score < old_novelty_score - 0.1 or
-    new_storyteller_score < old_storyteller_score - 0.1):
-    trigger_rollback()
+def select_complementary_pattern(critic_result, classified_patterns):
+    """Select complementary Pattern based on Critic feedback"""
+    if critic_result['novelty']['score'] < 6.0:
+        # Lacks novelty → long-tail injection
+        return classified_patterns['novelty'][0]  # Rank 5-10
+
+    elif critic_result['methodology']['score'] < 6.0:
+        # Lacks robustness → head injection
+        return classified_patterns['stability'][0]  # Rank 1-3
+
+    elif critic_result['storyteller']['score'] < 6.0:
+        # Lacks narrative → cross-domain injection
+        return classified_patterns['cross_domain'][0]
+
+    # Default: select from Novelty
+    return classified_patterns['novelty'][0]
 ```
 
-**回滚流程**:
+### 7.4 Score Degradation Rollback
+
+**Detection Mechanism**:
+```python
+def check_score_degradation(new_score, old_score):
+    """Detect significant score drop"""
+    DEGRADATION_THRESHOLD = 0.1
+
+    if new_score < old_score - DEGRADATION_THRESHOLD:
+        return True  # Trigger rollback
+    return False
+```
+
+**Rollback Operation**:
 ```python
 def rollback():
-    """回滚到上一个版本"""
-    # 1. 恢复Story
-    current_story = last_story_before_refinement
+    """Rollback to previous version"""
+    # 1. Restore Story
+    current_story = previous_story.copy()
 
-    # 2. 标记失败Pattern
-    pattern_failure_map[pattern_id].add(issue_type)
+    # 2. Mark Pattern failed
+    pattern_failure_map[injected_pattern_id] = True
 
-    # 3. 删除注入的Tricks
-    injected_tricks.remove(failed_trick)
+    # 3. Delete injected Tricks
+    remove_injected_tricks()
 
-    # 4. 继续迭代(不增加iterations计数)
-```
-
-### 7.3 普通修正模式
-
-**触发条件**: 新颖性未停滞,但评分未通过
-
-**Critic诊断与Pattern维度映射**: 系统将Critic的三个评审角色直接映射到Pattern的三个分类维度,实现统一的修正策略。
-
-| Critic角色 | 评审焦点 | 诊断问题类型 | 映射Pattern维度 | 注入策略 |
-|-----------|---------|------------|----------------|---------|
-| **Novelty** | 创新性 | `novelty` | **Novelty维度** | 从novelty维度按序选择Pattern,注入创新方法 |
-| **Methodology** | 技术合理性 | `stability` | **Stability维度** | 从stability维度按序选择Pattern,注入稳健方法 |
-| **Storyteller** | 叙事完整性 | `domain_distance` | **Domain Distance维度** | 从domain_distance维度选择Pattern,引入跨域视角 |
-
-**核心设计理念**:
-- **统一映射**: Critic的诊断结果直接映射到Pattern的三个分类维度,避免额外的启发式规则
-- **维度一致**: Pattern Selector已按三个维度(稳健度、新颖度、跨域度)对所有Pattern排序,Refinement Engine直接复用这些排序结果
-- **策略简化**: 不再需要"解释性注入"、"领域适配注入"等额外策略,所有修正统一通过Pattern维度选择实现
-
-**注入逻辑**:
-```python
-def refine_with_idea_fusion(main_issue: str, suggestions: List[str],
-                            previous_story: Optional[Dict] = None) -> Tuple[List[str], Optional[Dict]]:
-    """基于Critic诊断,从对应Pattern维度选择并融合"""
-
-    # Step 1: 维度映射
-    dimension_map = {
-        'novelty': 'novelty',          # Novelty Critic → Novelty维度
-        'stability': 'stability',      # Methodology Critic → Stability维度
-        'domain_distance': 'domain_distance'  # Storyteller Critic → Domain Distance维度
-    }
-    dimension = dimension_map[main_issue]
-
-    # Step 2: 从对应维度选择Pattern
-    patterns = ranked_patterns[dimension]
-    idx = dimension_indices[dimension]  # 维度内的当前索引
-
-    while idx < len(patterns):
-        pattern_id, pattern_info, metadata = patterns[idx]
-
-        # 跳过已失败的Pattern
-        if is_pattern_failed_for_issue(pattern_id, main_issue):
-            idx += 1
-            continue
-
-        # Step 3: Idea Fusion
-        fused_result = fusion_engine.fuse(
-            user_idea=user_idea,
-            pattern_id=pattern_id,
-            pattern_info=pattern_info,
-            previous_story=previous_story
-        )
-
-        # Step 4: 返回融合结果
-        return injected_tricks, fused_result
-```
-
-**示例场景**:
-```
-场景: Storyteller Critic给出低分(叙事不连贯)
-→ 诊断: domain_distance
-→ 选择: 从domain_distance维度(按领域距离升序排列)选择Pattern
-→ 效果: 引入不同领域的叙事视角,丰富Story结构
+    # 4. Don't increment iteration count
+    print(f"【ROLLBACK TRIGGERED】 Score dropped, restored to previous version")
 ```
 
 ---
 
-## 8. RAG查重与规避
+## 8. RAG Deduplication Verification
 
-### 8.1 查重流程
+### 8.1 Verification Process
+
+```
+Final Story
+    ↓
+【Step 1: Extract Key Methods】
+    └─ Extract techniques from method_skeleton
+    ↓
+【Step 2: Embed and Retrieve】
+    ├─ Generate Embedding for techniques
+    └─ Retrieve Top-K similar papers from database
+    ↓
+【Step 3: Similarity Calculation】
+    └─ Calculate semantic similarity with each paper
+    ↓
+【Step 4: Collision Detection】
+    └─ If max_similarity > 0.75 → Collision detected
+    ↓
+【Step 5: Pivot Avoidance】
+    ├─ Analyze collision points
+    ├─ Generate avoidance constraints
+    └─ Return to Phase 2 (regenerate Story)
+```
+
+### 8.2 Embedding Retrieval
 
 ```python
-def verify_collision(story):
-    """RAG查重"""
-    # 1. 提取关键方法
-    method_keywords = extract_method_keywords(story)
+def retrieve_similar_papers(techniques):
+    """Retrieve similar papers using Embedding"""
+    # Generate query Embedding
+    query_text = " ".join(techniques)
+    query_embedding = get_embedding(query_text)
 
-    # 2. 构建Query
-    query = f"{method_keywords} {story['problem_definition']}"
+    # Retrieve from vector database
+    similar_papers = vector_db.search(
+        query_embedding,
+        top_k=20,
+        filters={'year': {'$gte': 2022}}  # Recent 3 years
+    )
 
-    # 3. 检索近3年顶会论文
-    similar_papers = retrieve_similar_papers(query, top_k=10)
+    return similar_papers
+```
 
-    # 4. 计算相似度
+### 8.3 Collision Detection
+
+```python
+def check_collision(story, similar_papers):
+    """Check if Story collides with existing work"""
+    COLLISION_THRESHOLD = 0.75
+
+    story_text = format_story_for_comparison(story)
+    story_embedding = get_embedding(story_text)
+
+    max_similarity = 0.0
+    collision_paper = None
+
     for paper in similar_papers:
-        similarity = compute_similarity(story, paper)
-        if similarity > COLLISION_THRESHOLD:
-            return {
-                'collision': True,
-                'collided_paper': paper,
-                'similarity': similarity
-            }
+        paper_text = paper['title'] + " " + paper['abstract']
+        paper_embedding = get_embedding(paper_text)
 
-    return {'collision': False}
+        similarity = cosine_similarity(story_embedding, paper_embedding)
+
+        if similarity > max_similarity:
+            max_similarity = similarity
+            collision_paper = paper
+
+    if max_similarity > COLLISION_THRESHOLD:
+        return True, collision_paper, max_similarity
+
+    return False, None, 0.0
 ```
 
-### 8.2 Pivot规避策略
+### 8.4 Pivot Strategy
 
-**触发条件**: `similarity > 0.75`
-
-**规避流程**:
 ```python
-def pivot_to_avoid_collision(story, collided_paper):
-    """生成规避约束"""
-    # 1. 撞车分析
-    collision_analysis = analyze_collision(story, collided_paper)
-
-    # 2. 生成约束
+def generate_pivot_constraints(collision_paper):
+    """Generate avoidance constraints"""
     constraints = {
-        'forbidden_techniques': collision_analysis['overlapping_techniques'],
-        'pivot_direction': "迁移到无监督设定",
-        'domain_shift': "从通用领域迁移到法律文本",
-        'additional_constraint': "增加长文本处理模块"
+        'forbidden_techniques': extract_techniques(collision_paper),
+        'alternative_domains': suggest_alternative_domains(collision_paper),
+        'pivot_direction': analyze_pivot_opportunities(collision_paper)
     }
 
-    # 3. 重新生成Story
-    new_story = generate_story(pattern, constraints=constraints)
-
-    return new_story
+    return constraints
 ```
 
 ---
 
-## 9. 参数配置
+## 9. Parameter Configuration
 
-### 9.1 Pipeline配置
+### 9.1 Core Parameters
 
 ```python
-# scripts/pipeline/config.py
-
 class PipelineConfig:
-    """Pipeline配置参数"""
+    # Iteration control
+    MAX_ITERATIONS = 3              # Maximum iterations
+    MAX_NOVELTY_PATTERNS = 10       # Max patterns in novelty mode
 
-    # Pattern选择
-    SELECT_PATTERN_COUNT = 3              # 选择3个不同策略的Pattern
-    CONSERVATIVE_RANK_RANGE = (0, 2)      # 稳健型: Rank 1-3
-    INNOVATIVE_CLUSTER_SIZE_THRESHOLD = 10 # 创新型: Cluster Size < 10
+    # Threshold settings
+    CRITIC_PASS_THRESHOLD = 7.0     # Critic pass threshold
+    FUSION_QUALITY_THRESHOLD = 0.65 # Fusion quality threshold
+    COLLISION_THRESHOLD = 0.75      # RAG collision threshold
+    DEGRADATION_THRESHOLD = 0.1     # Score degradation threshold
+    NOVELTY_STAGNATION_THRESHOLD = 0.5  # Novelty stagnation threshold
 
-    # Critic阈值
-    PASS_SCORE = 7.0                      # 评分 >= 7 为通过
-    MAX_REFINE_ITERATIONS = 3             # 最多修正3轮(普通模式)
+    # Pattern selection weights
+    STABILITY_WEIGHT = 0.4
+    NOVELTY_WEIGHT = 0.4
+    CROSS_DOMAIN_WEIGHT = 0.2
 
-    # 新颖性模式配置
-    NOVELTY_MODE_MAX_PATTERNS = 10        # 新颖性模式最多尝试的Pattern数
-    NOVELTY_SCORE_THRESHOLD = 6.0         # 新颖性得分阈值
-    NOVELTY_STAGNATION_DELTA = 0.5        # 停滞判定阈值
-
-    # Reflection配置
-    FUSION_QUALITY_THRESHOLD = 0.65       # 融合质量阈值
-
-    # 回滚配置
-    SCORE_DEGRADATION_THRESHOLD = 0.1     # 分数下降阈值
-
-    # RAG查重阈值
-    COLLISION_THRESHOLD = 0.75            # 相似度 > 0.75 认为撞车
-
-    # Refinement策略
-    TAIL_INJECTION_RANK_RANGE = (4, 9)    # 长尾注入: Rank 5-10
-    HEAD_INJECTION_RANK_RANGE = (0, 2)    # 头部注入: Rank 1-3
-    HEAD_INJECTION_CLUSTER_THRESHOLD = 15 # 头部注入: Cluster Size > 15
+    # LLM settings
+    LLM_MODEL = "Qwen/Qwen3-14B"
+    LLM_API_URL = "https://api.siliconflow.cn/v1/chat/completions"
+    EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-4B"
 ```
 
-### 9.2 LLM配置
+### 9.2 Prompt Templates
 
 ```python
-# scripts/pipeline/config.py
-
-LLM_API_KEY = os.getenv("SILICONFLOW_API_KEY")
-LLM_API_URL = "https://api.siliconflow.cn/v1/chat/completions"
-LLM_MODEL = "Qwen/Qwen3-14B"  # 可选: Qwen2.5-7B-Instruct
-```
-
----
-
-## 10. 运行方式
-
-### 10.1 完整Pipeline运行
-
-**命令**:
-```bash
-cd /Users/gaoge/code/mycode/Idea2Paper/Paper-KG-Pipeline
-python scripts/idea2story_pipeline.py "你的研究Idea描述"
-```
-
-**示例**:
-```bash
-python scripts/idea2story_pipeline.py "使用强化学习优化大模型的推理效率"
-```
-
-**输出**:
-```
-output/
-├── final_story.json          # 最终生成的论文Story
-├── pipeline_result.json      # 完整流程结果
-└── log.json                  # 详细日志
-```
-
-### 10.2 输出结构
-
-**final_story.json**:
-```json
-{
-  "title": "Efficient LLM Reasoning via Reinforcement Learning...",
-  "abstract": "We propose...",
-  "problem_definition": "...",
-  "gap_pattern": "...",
-  "method_skeleton": {...},
-  "innovation_claims": [...],
-  "experiments_plan": {...}
+# Located in prompts/ directory
+PROMPTS = {
+    'initial_generation': 'prompts/initial_story.txt',
+    'refinement': 'prompts/refinement.txt',
+    'idea_fusion': 'prompts/idea_fusion.txt',
+    'story_reflection': 'prompts/story_reflection.txt',
+    'methodology_critic': 'prompts/methodology_critic.txt',
+    'novelty_critic': 'prompts/novelty_critic.txt',
+    'storyteller_critic': 'prompts/storyteller_critic.txt'
 }
 ```
+
+---
+
+## 10. Execution Methods
+
+### 10.1 Command Line Execution
+
+**Basic Usage**:
+```bash
+cd /Users/gaoge/code/mycode/Idea2Paper/Paper-KG-Pipeline
+python scripts/run_pipeline.py --idea "Your research idea" --output output/result.json
+```
+
+**With Parameters**:
+```bash
+python scripts/run_pipeline.py \
+    --idea "Using distillation for cross-domain text classification" \
+    --max-iterations 5 \
+    --critic-threshold 7.5 \
+    --verbose
+```
+
+### 10.2 Programmatic Usage
+
+```python
+from pipeline_manager import PipelineManager
+
+# Initialize Pipeline
+manager = PipelineManager()
+
+# Execute
+user_idea = "Your research idea"
+result = manager.run(
+    user_idea=user_idea,
+    max_iterations=3,
+    verbose=True
+)
+
+# Process results
+if result['success']:
+    final_story = result['final_story']
+    print(f"Title: {final_story['title']}")
+    print(f"Score: {result['final_score']}")
+```
+
+### 10.3 Output Format
 
 **pipeline_result.json**:
 ```json
 {
   "success": true,
-  "final_story": {...},
-  "iterations": 5,
-  "selected_patterns": {
-    "stability": [...],
-    "novelty": [...],
-    "cross_domain": [...]
+  "final_story": {
+    "title": "...",
+    "abstract": "...",
+    "problem_definition": "...",
+    "gap_pattern": "...",
+    "method_skeleton": {...},
+    "innovation_claims": [...],
+    "experiments_plan": {...}
   },
+  "final_score": 7.2,
+  "final_story_source": {
+    "iteration": 2,
+    "score": 7.2,
+    "is_best_across_iterations": true
+  },
+  "iterations": 3,
   "review_history": [
     {
       "iteration": 1,
-      "methodology": {"score": 6.0, "issues": [...]},
-      "novelty": {"score": 5.5, "issues": [...]},
-      "storyteller": {"score": 7.0, "issues": []},
-      "avg_score": 6.17
+      "methodology_score": 6.5,
+      "novelty_score": 5.8,
+      "storyteller_score": 6.2,
+      "avg_score": 6.17,
+      "pass": false
     },
     ...
   ],
@@ -851,156 +967,156 @@ output/
 }
 ```
 
-### 10.3 监控关键指标
+### 10.3 Monitoring Key Metrics
 
-**新颖性模式激活**:
+**Novelty Mode Activation**:
 ```bash
-grep "激活【新颖性模式】" output/log.json
+grep "Activated【Novelty Mode】" output/log.json
 ```
 
-**融合质量评分**:
+**Fusion Quality Scores**:
 ```bash
-grep "融合质量评分" output/log.json
+grep "Fusion quality score" output/log.json
 ```
 
-**回滚事件**:
+**Rollback Events**:
 ```bash
 grep "【ROLLBACK TRIGGERED】" output/log.json
 ```
 
-**最终通过情况**:
+**Final Pass Status**:
 ```bash
-grep "🎉 Critic 评审通过" output/log.json
+grep "🎉 Critic Review Passed" output/log.json
 ```
 
 ---
 
-## 11. 流程详细示例
+## 11. Detailed Process Examples
 
-### 11.1 场景A: 新颖性停滞触发新模式
+### 11.1 Scenario A: Novelty Stagnation Triggers New Mode
 
-**初始状态**:
+**Initial State**:
 ```
 Iteration 1: Novelty Score = 5.5
-Iteration 2: Novelty Score = 5.6 (仅提升0.1 < 0.5)
-→ 触发新颖性模式
+Iteration 2: Novelty Score = 5.6 (only 0.1 improvement < 0.5)
+→ Trigger novelty mode
 ```
 
-**新颖性模式流程**:
+**Novelty Mode Process**:
 ```
-1. 激活新颖性模式
-2. 遍历Novelty Pattern列表 (最多10个)
+1. Activate novelty mode
+2. Traverse Novelty Pattern list (max 10)
 
   Pattern 1 (pattern_42):
-    ├─ Idea Fusion: 生成融合Idea
-    ├─ Story Reflection: 融合质量评分0.72
-    ├─ 生成终稿Story (基于reflection建议)
-    ├─ Critic评审: 6.5/10 (未通过)
-    └─ 继续下一个Pattern
+    ├─ Idea Fusion: Generate fused Idea
+    ├─ Story Reflection: Fusion quality score 0.72
+    ├─ Generate final Story (based on reflection suggestions)
+    ├─ Critic Review: 6.5/10 (did not pass)
+    └─ Continue to next Pattern
 
   Pattern 2 (pattern_55):
-    ├─ Idea Fusion: 生成融合Idea
-    ├─ Story Reflection: 融合质量评分0.68
-    ├─ 生成终稿Story
-    ├─ Critic评审: 7.2/10 (通过!)
-    └─ 进入RAG查重
+    ├─ Idea Fusion: Generate fused Idea
+    ├─ Story Reflection: Fusion quality score 0.68
+    ├─ Generate final Story
+    ├─ Critic Review: 7.2/10 (passed!)
+    └─ Enter RAG deduplication
 
-3. RAG查重: 未撞车
-4. 输出Final Story
+3. RAG deduplication: No collision
+4. Output Final Story
 ```
 
-### 11.2 场景B: 分数退化触发回滚
+### 11.2 Scenario B: Score Degradation Triggers Rollback
 
 ```
 Iteration 3:
-  当前分数: Methodology=7.0, Novelty=6.0, Storyteller=7.5
+  Current scores: Methodology=7.0, Novelty=6.0, Storyteller=7.5
 
-  注入Pattern_30:
+  Inject Pattern_30:
     ├─ Idea Fusion: ...
-    ├─ 生成新Story
-    ├─ Critic评审: Methodology=6.2 (下降0.8 > 0.1)
-    ├─ 检测到分数退化
-    └─ 触发回滚
+    ├─ Generate new Story
+    ├─ Critic Review: Methodology=6.2 (dropped 0.8 > 0.1)
+    ├─ Detected score degradation
+    └─ Trigger rollback
 
-  回滚操作:
-    ├─ 恢复Story到注入前版本
-    ├─ 标记Pattern_30失败
-    ├─ 删除注入的Tricks
-    └─ 继续迭代(不增加计数)
+  Rollback operation:
+    ├─ Restore Story to pre-injection version
+    ├─ Mark Pattern_30 as failed
+    ├─ Delete injected Tricks
+    └─ Continue iteration (don't increment count)
 
-  选择下一个Pattern: Pattern_45
+  Select next Pattern: Pattern_45
     ├─ Idea Fusion: ...
-    ├─ 生成新Story
-    ├─ Critic评审: Methodology=7.3 (提升)
-    └─ 保存结果
+    ├─ Generate new Story
+    ├─ Critic Review: Methodology=7.3 (improved)
+    └─ Save results
 ```
 
 ---
 
-## 12. 最终版本选择机制
+## 12. Final Version Selection Mechanism
 
-### 12.1 全局最优追踪
+### 12.1 Global Optimal Tracking
 
-**设计理念**: 在整个迭代过程中,每一轮生成的Story可能有不同的优劣,系统需要记录并最终选择最优版本。
+**Design Philosophy**: Throughout the iteration process, each round's generated Story may have different strengths and weaknesses. The system needs to track and ultimately select the best version.
 
-**核心机制**:
+**Core Mechanism**:
 ```python
-# 每轮Critic评审后更新全局最佳版本
+# Update global best version after each Critic review
 if current_avg_score > global_best_score:
     global_best_story = current_story
     global_best_score = current_avg_score
     global_best_iteration = iteration_number
-    print(f"🏆 更新全局最佳版本: 得分 {global_best_score:.2f}")
+    print(f"🏆 Updated global best version: score {global_best_score:.2f}")
 ```
 
-### 12.2 最终输出逻辑
+### 12.2 Final Output Logic
 
-**优先级规则**:
-1. **优先**: 如果有通过Critic评审的版本(avg_score >= 7.0) → 使用通过版本
-2. **兜底**: 如果没有通过版本 → 使用全局最佳版本(迭代中得分最高)
+**Priority Rules**:
+1. **Priority**: If there's a version that passed Critic review (avg_score >= 7.0) → Use passed version
+2. **Fallback**: If no version passed → Use global best version (highest score across iterations)
 
-**实现流程**:
+**Implementation Process**:
 ```python
-# 最终版本选择
-final_story = current_story  # 默认当前版本
+# Final version selection
+final_story = current_story  # Default to current version
 final_is_passed = review_history[-1]['pass']
 
 if not final_is_passed and global_best_story is not None:
-    # 未通过但有最佳版本
+    # Did not pass but have best version
     if global_best_score > current_score:
-        final_story = global_best_story  # 使用最佳版本
-        print(f"✅ 使用全局最佳版本(迭代 {global_best_iteration}, 得分 {global_best_score:.2f})")
+        final_story = global_best_story  # Use best version
+        print(f"✅ Using global best version (iteration {global_best_iteration}, score {global_best_score:.2f})")
 ```
 
-### 12.3 典型场景
+### 12.3 Typical Scenarios
 
-**场景A: 逐步提升,最终通过**
+**Scenario A: Gradual Improvement, Final Pass**
 ```
-迭代1: 初稿 → 6.17分 → 更新最佳版本
-迭代2: 注入Novelty Pattern → 6.85分 → 更新最佳版本
-迭代3: 继续优化 → 7.20分 → 通过! ✅
-→ 输出: 迭代3的通过版本
-```
-
-**场景B: 起伏波动,未通过**
-```
-迭代1: 初稿 → 6.17分 → 更新最佳版本
-迭代2: 注入Pattern → 6.85分 → 更新最佳版本
-迭代3: 回滚后优化 → 6.50分 → 未更新
-→ 输出: 迭代2的最佳版本(6.85分)
+Iteration 1: Draft → 6.17 score → Update best version
+Iteration 2: Inject Novelty Pattern → 6.85 score → Update best version
+Iteration 3: Continue optimization → 7.20 score → Passed! ✅
+→ Output: Iteration 3's passed version
 ```
 
-**场景C: 新颖性模式遍历**
+**Scenario B: Fluctuating, Did Not Pass**
 ```
-新颖性模式:
-  Pattern 1 → 6.50分 → 更新最佳版本
-  Pattern 2 → 6.35分 → 未更新
-  Pattern 3 → 6.80分 → 更新最佳版本
-  Pattern 4 → 7.10分 → 通过! ✅
-→ 输出: Pattern 4的通过版本
+Iteration 1: Draft → 6.17 score → Update best version
+Iteration 2: Inject Pattern → 6.85 score → Update best version
+Iteration 3: Optimized after rollback → 6.50 score → Not updated
+→ Output: Iteration 2's best version (6.85 score)
 ```
 
-### 12.4 输出信息
+**Scenario C: Novelty Mode Traversal**
+```
+Novelty mode:
+  Pattern 1 → 6.50 score → Update best version
+  Pattern 2 → 6.35 score → Not updated
+  Pattern 3 → 6.80 score → Update best version
+  Pattern 4 → 7.10 score → Passed! ✅
+→ Output: Pattern 4's passed version
+```
+
+### 12.4 Output Information
 
 **pipeline_result.json**:
 ```json
@@ -1017,77 +1133,77 @@ if not final_is_passed and global_best_story is not None:
 }
 ```
 
-**日志输出**:
+**Log Output**:
 ```
-🎯 最终版本选择逻辑
+🎯 Final Version Selection Logic
 ================================================================================
-📊 当前版本: 平均分=6.50, 状态=未通过
-🏆 全局最佳版本: 平均分=6.85 (迭代 2)
+📊 Current version: avg_score=6.50, status=did not pass
+🏆 Global best version: avg_score=6.85 (iteration 2)
 
-✅ 使用全局最佳版本作为最终输出（得分更高）
+✅ Using global best version as final output (higher score)
 ================================================================================
 
-🎉 Pipeline 完成!
+🎉 Pipeline Complete!
 ================================================================================
-✅ 状态: 需人工审核
-📊 迭代次数: 3
-🏆 最终版本来源: 迭代 2
-📝 最终 Story:
-   标题: ...
-   摘要: ...
+✅ Status: Requires manual review
+📊 Iterations: 3
+🏆 Final version source: Iteration 2
+📝 Final Story:
+   Title: ...
+   Abstract: ...
 ================================================================================
 ```
 
 ---
 
-## 13. 故障排查
+## 13. Troubleshooting
 
-### 13.1 常见问题
+### 13.1 Common Issues
 
-**Q: 新颖性模式遍历完所有Pattern仍未通过**
+**Q: Novelty mode traversed all Patterns but still did not pass**
 ```
-原因: 所有Novelty Pattern都不适配
-解决: 兜底策略自动选择最高分版本输出
-检查: output/log.json中"兜底策略"关键词
-```
-
-**Q: Fusion质量评分总是低于0.65**
-```
-原因: Pattern与Idea概念距离过大
-解决:
-1. 检查Pattern选择是否合理
-2. 调整FUSION_QUALITY_THRESHOLD (0.65 → 0.60)
-3. 改进Fusion Prompt
+Cause: All Novelty Patterns don't fit
+Solution: Fallback strategy automatically selects highest-scoring version
+Check: "fallback strategy" keyword in output/log.json
 ```
 
-**Q: 回滚频繁发生**
+**Q: Fusion quality score always below 0.65**
 ```
-原因: 注入的Pattern导致分数下降
-检查:
-1. pattern_failure_map记录了哪些Pattern失败
-2. 是否某些Pattern与Idea完全不兼容
-解决: 优化Pattern选择策略
-```
-
-**Q: RAG查重总是撞车**
-```
-原因: Idea本身与现有工作高度重合
-解决: Pivot策略生成规避约束
-检查: 是否需要调整COLLISION_THRESHOLD (0.75 → 0.80)
+Cause: Pattern and Idea have too much conceptual distance
+Solution:
+1. Check if Pattern selection is reasonable
+2. Adjust FUSION_QUALITY_THRESHOLD (0.65 → 0.60)
+3. Improve Fusion Prompt
 ```
 
-### 13.2 调试模式
+**Q: Frequent rollbacks**
+```
+Cause: Injected Patterns cause score drops
+Check:
+1. Which Patterns failed recorded in pattern_failure_map
+2. Are some Patterns completely incompatible with Idea
+Solution: Optimize Pattern selection strategy
+```
 
-**启用详细日志**:
+**Q: RAG deduplication always finds collision**
+```
+Cause: Idea itself highly overlaps with existing work
+Solution: Pivot strategy generates avoidance constraints
+Check: Need to adjust COLLISION_THRESHOLD (0.75 → 0.80)
+```
+
+### 13.2 Debug Mode
+
+**Enable Detailed Logging**:
 ```python
-# 在manager.py中添加
+# Add in manager.py
 import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
 
-**打印中间结果**:
+**Print Intermediate Results**:
 ```python
-# 在关键步骤添加print
+# Add prints at key steps
 print(f"[DEBUG] Fused Idea: {fused_idea}")
 print(f"[DEBUG] Reflection Quality: {reflection_result['fusion_quality']}")
 print(f"[DEBUG] Critic Scores: {critic_result}")
@@ -1095,22 +1211,22 @@ print(f"[DEBUG] Critic Scores: {critic_result}")
 
 ---
 
-## 14. 性能优化
+## 14. Performance Optimization
 
-### 14.1 并行生成
+### 14.1 Parallel Generation
 
 ```python
 from concurrent.futures import ThreadPoolExecutor
 
 def parallel_story_generation(patterns):
-    """并行生成多个Story"""
+    """Generate multiple Stories in parallel"""
     with ThreadPoolExecutor(max_workers=3) as executor:
         futures = [executor.submit(generate_story, p) for p in patterns]
         results = [f.result() for f in futures]
     return results
 ```
 
-### 14.2 缓存LLM响应
+### 14.2 Cache LLM Responses
 
 ```python
 import hashlib
@@ -1119,7 +1235,7 @@ import json
 cache = {}
 
 def cached_llm_call(prompt):
-    """缓存LLM调用结果"""
+    """Cache LLM call results"""
     key = hashlib.md5(prompt.encode()).hexdigest()
     if key in cache:
         return cache[key]
@@ -1131,36 +1247,35 @@ def cached_llm_call(prompt):
 
 ---
 
-## 15. 总结
+## 15. Summary
 
-### 核心成果
+### Core Achievements
 
-✅ **完整的Idea2Story Pipeline**: 从用户Idea到可发表Story
-✅ **Idea Fusion机制**: 实现Pattern的有机融合而非生硬拼接
-✅ **Story Reflection**: 确保融合质量,评估概念统一性
-✅ **智能修正**: 新颖性模式+分数退化回滚+兜底策略
-✅ **多角色Critic**: 三维度评审,全面评估Story质量
-✅ **RAG查重**: 避免与现有工作撞车
+✅ **Complete Idea2Story Pipeline**: From user Idea to publishable Story
+✅ **Idea Fusion mechanism**: Achieves organic Pattern fusion rather than crude concatenation
+✅ **Story Reflection**: Ensures fusion quality, evaluates conceptual unity
+✅ **Intelligent correction**: Novelty mode + score degradation rollback + fallback strategy
+✅ **Multi-role Critic**: Three-dimensional review, comprehensive Story quality evaluation
+✅ **RAG deduplication**: Avoids collision with existing work
 
-### 技术特性
+### Technical Features
 
-✅ **自适应迭代**: 根据评审结果自动选择修正策略
-✅ **质量保障**: 多层次质量检查(Reflection+Critic+RAG)
-✅ **容错机制**: 回滚+失败标记+兜底策略
-✅ **全局最优追踪**: 每轮迭代记录最佳版本,最终输出通过版本或最高分版本
-✅ **统一诊断映射**: Critic三角色直接映射到Pattern三维度,实现架构一致性
-✅ **完整日志**: 详细记录每一步决策和结果
+✅ **Adaptive iteration**: Automatically selects correction strategy based on review results
+✅ **Quality assurance**: Multi-level quality checks (Reflection+Critic+RAG)
+✅ **Fault tolerance**: Rollback + failure marking + fallback strategy
+✅ **Global optimal tracking**: Records best version each iteration, outputs passed version or highest-scoring version
+✅ **Unified diagnostic mapping**: Three Critic roles directly map to three Pattern dimensions, achieving architectural consistency
+✅ **Complete logging**: Detailed recording of every decision and result
 
-### 创新点
+### Innovations
 
-✅ **概念层面融合**: Idea Fusion关注概念统一而非技术拼接
-✅ **融合质量反思**: Story Reflector评估融合效果
-✅ **新颖性优先**: 停滞时自动升级为新颖性模式
-✅ **智能回滚**: 避免无效修正,提高迭代效率
+✅ **Conceptual-level fusion**: Idea Fusion focuses on conceptual unity rather than technical concatenation
+✅ **Fusion quality reflection**: Story Reflector evaluates fusion effectiveness
+✅ **Novelty priority**: Automatically upgrades to novelty mode when stagnating
+✅ **Intelligent rollback**: Avoids ineffective corrections, improves iteration efficiency
 
 ---
 
-**生成时间**: 2026-01-25
-**版本**: V1.0
-**作者**: Idea2Paper Team
-
+**Generation Time**: 2026-01-25
+**Version**: V1.0
+**Author**: Idea2Paper Team

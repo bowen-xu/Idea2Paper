@@ -1,200 +1,228 @@
-# Idea2Paper 项目总结文档
+# Idea2Paper Project Summary Document
+[English](00_PROJECT_OVERVIEW.md) | [简体中文](00_PROJECT_OVERVIEW_zh.md)
 
-## 📋 项目概述
+## 📋 Project Overview
 
-**项目名称**: Idea2Paper - 基于知识图谱的学术论文自动生成系统
+**Project Name**: Idea2Paper - Automated Academic Paper Generation System Based on Knowledge Graph
 
-**核心目标**: 将用户的研究Idea自动转化为符合顶会(ICLR)标准的论文Story
+**Core Goal**: Automatically transform a user's research **Idea** into a submission-ready paper **Story** (Narrative Skeleton) that meets top-tier conference (ICLR) standards.
 
-**技术栈**:
-- 知识图谱: NetworkX
-- 向量检索: Embedding (Qwen3-Embedding-4B)
-- 大语言模型: Qwen3-14B, Qwen2.5-7B-Instruct
-- 数据源: ICLR 2025论文数据集(8,285篇)
+**Tech Stack**:
+
+* Knowledge Graph: NetworkX
+* Vector Retrieval: Embedding (Qwen3-Embedding-4B)
+* Large Language Models: Qwen3-14B, Qwen2.5-7B-Instruct
+* Data Source: ICLR 2025 Paper Dataset (8,285 papers)
 
 ---
+# Table of Contents
 
-## 1. 系统架构
+- [Idea2Paper Project Summary Document](#idea2paper-project-summary-document)
+  - [1. System Architecture](#1-system-architecture)
+  - [2. Knowledge Graph Construction](#2-knowledge-graph-construction)
+  - [3. Three-Way Retrieval System](#3-three-way-retrieval-system)
+  - [4. Idea2Story Pipeline](#4-idea2story-pipeline)
+  - [5. Configuration Overview](#5-configuration-overview)
+  - [6. Complete Workflow](#6-complete-workflow)
+  - [7. Core Innovations](#7-core-innovations)
+  - [8. System Advantages](#8-system-advantages)
+  - [9. Current Limitations & Future Directions](#9-current-limitations--future-directions)
+  - [10. Documentation Index](#10-documentation-index)
+  - [11. Code Structure](#11-code-structure)
+  - [12. Key Metrics](#12-key-metrics)
+  - [13. Usage Recommendations](#13-usage-recommendations)
+  - [14. Troubleshooting](#14-troubleshooting)
+  - [15. Summary](#15-summary)
+  - [16. Acknowledgements](#16-acknowledgements)
 
-### 1.1 整体流程图
+
+## 1. System Architecture
+
+### 1.1 Overall Flowchart
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                          【Idea2Paper 完整流程】                          │
+│                       Idea2Paper Complete Workflow                      │
 └─────────────────────────────────────────────────────────────────────────┘
 
-用户输入Idea
+User Input Idea
     │
     ├──────────────────────────────────────────────────────────────────────┐
-    │                      【第一阶段: 知识图谱构建】                        │
-    │                      (一次性构建,后续复用)                            │
+    │                 Phase 1: Knowledge Graph Construction                │
+    │                (One-time build, reusable subsequently)               │
     ├──────────────────────────────────────────────────────────────────────┤
-    │                                                                        │
-    │  1. 加载ICLR论文数据 (8,285篇)                                        │
-    │      ↓                                                                 │
-    │  2. 构建4类节点                                                        │
-    │      ├─ Idea节点 (8,284个)                                            │
-    │      ├─ Pattern节点 (124个, LLM增强)                                  │
-    │      ├─ Domain节点 (98个)                                             │
-    │      └─ Paper节点 (8,285个)                                           │
-    │      ↓                                                                 │
-    │  3. 构建边关系 (444,872条)                                            │
-    │      ├─ 基础连接边 (Paper→Idea/Pattern/Domain)                       │
-    │      └─ 召回辅助边 (Idea→Domain, Pattern→Domain)                     │
-    │      ↓                                                                 │
-    │  4. 输出知识图谱                                                       │
-    │                                                                        │
+    │                                                                      │
+    │  1. Load ICLR Paper Data (8,285 papers)                              │
+    │      ↓                                                               │
+    │  2. Construct 4 Types of Nodes                                       │
+    │      ├─ Idea Nodes (8,284)                                           │
+    │      ├─ Pattern Nodes (124, LLM-Enhanced)                            │
+    │      ├─ Domain Nodes (98)                                            │
+    │      └─ Paper Nodes (8,285)                                          │
+    │      ↓                                                               │
+    │  3. Construct Edge Relations (444,872 edges)                         │
+    │      ├─ Basic Connection Edges (Paper→Idea/Pattern/Domain)           │
+    │      └─ Retrieval Auxiliary Edges (Idea→Domain, Pattern→Domain)      │
+    │      ↓                                                               │
+    │  4. Output Knowledge Graph                                           │
+    │                                                                      │
     └──────────────────────────────────────────────────────────────────────┘
     │
     ├──────────────────────────────────────────────────────────────────────┐
-    │                      【第二阶段: 三路召回】                            │
-    │                      (每次运行,约27秒)                                │
+    │                      Phase 2: Three-Way Retrieval                    │
+    │                         (Per run, approx. 27s)                       │
     ├──────────────────────────────────────────────────────────────────────┤
-    │                                                                        │
-    │  ┌─────────────┬─────────────┬─────────────┐                        │
-    │  │  路径1      │   路径2     │   路径3     │                        │
-    │  │ 相似Idea    │  领域相关   │ 相似Paper   │                        │
-    │  │ (权重0.4)   │  (权重0.2)  │ (权重0.4)   │                        │
-    │  └─────────────┴─────────────┴─────────────┘                        │
-    │       │              │              │                                 │
-    │       │              │              │                                 │
-    │  粗排: Jaccard   匹配Domain   粗排: Jaccard                          │
-    │  Top-100         Top-5        Top-100                                │
-    │       ↓              ↓              ↓                                 │
-    │  精排: Embedding 查找Pattern  精排: Embedding                        │
-    │  Top-10          works_well   Top-20                                 │
-    │       ↓              ↓              ↓                                 │
-    │  获取Pattern     获取Pattern   获取Pattern                           │
-    │  得分            得分           得分                                  │
-    │       │              │              │                                 │
+    │                                                                      │
+    │  ┌─────────────┬─────────────┬─────────────┐                         │
+    │  │   Path 1    │   Path 2    │   Path 3    │                         │
+    │  │ Similar Idea│ Domain Rel. │Similar Paper│                         │
+    │  │ (Weight 0.4)│ (Weight 0.2)│ (Weight 0.4)│                         │
+    │  └─────────────┴─────────────┴─────────────┘                         │
+    │       │              │              │                                │
+    │       │              │              │                                │
+    │  Coarse: Jaccard Match Domain  Coarse: Jaccard                       │
+    │  Top-100         Top-5         Top-100                               │
+    │       ↓              ↓              ↓                                │
+    │  Fine: Embedding Find Pattern  Fine: Embedding                       │
+    │  Top-10          works_well    Top-20                                │
+    │       ↓              ↓              ↓                                │
+    │  Get Pattern     Get Pattern   Get Pattern                           │
+    │  Score           Score         Score                                 │
+    │       │              │              │                                │
     │       └──────────────┴──────────────┘                                │
-    │                      ↓                                                │
-    │              加权融合 & 精排                                          │
-    │                      ↓                                                │
-    │              Top-10 Pattern                                           │
-    │                                                                        │
+    │                      ↓                                               │
+    │             Weighted Fusion & Fine Ranking                           │
+    │                      ↓                                               │
+    │              Top-10 Patterns                                         │
+    │                                                                      │
     └──────────────────────────────────────────────────────────────────────┘
     │
     ├──────────────────────────────────────────────────────────────────────┐
-    │                    【第三阶段: Story生成与修正】                       │
-    │                    (3-10分钟)                                         │
+    │                Phase 3: Story Generation & Refinemen                 │
+    │                      (3-10 minutes)                                  │
     ├──────────────────────────────────────────────────────────────────────┤
-    │                                                                        │
-    │  1. Pattern多维度分类                                                 │
-    │      ├─ Stability (稳健型)                                            │
-    │      ├─ Novelty (新颖型)                                              │
-    │      └─ Cross-Domain (跨域型)                                         │
-    │      ↓                                                                 │
-    │  2. 选择初始Pattern → 生成初稿Story                                   │
-    │      ↓                                                                 │
-    │  3. Critic多角色评审 (Methodology/Novelty/Storyteller)                │
-    │      ↓                                                                 │
-    │  4. 判断: 评分 >= 7.0?                                                │
-    │      ├─【是】→ 进入第四阶段                                           │
-    │      └─【否】→ 智能修正                                               │
-    │                 │                                                      │
-    │                 ├─ 新颖性停滞? → 【新颖性模式】                       │
-    │                 │   ├─ 遍历Novelty Pattern                            │
-    │                 │   ├─ Idea Fusion (概念融合)                         │
-    │                 │   ├─ Story Reflection (质量评估)                    │
-    │                 │   ├─ 重新生成Story                                  │
-    │                 │   ├─ Critic评审                                     │
-    │                 │   ├─ 分数下降? → 回滚                               │
-    │                 │   └─ 兜底: 选最高分版本                             │
-    │                 │                                                      │
-    │                 └─ 普通修正 → 注入互补Tricks                          │
-    │                     ├─ 缺新颖性 → 长尾注入 (Rank 5-10)               │
-    │                     ├─ 缺稳定性 → 头部注入 (Rank 1-3)                │
-    │                     └─ 返回步骤2                                      │
-    │                                                                        │
+    │                                                                      │
+    │  1. Multi-dimensional Pattern Classification                         │
+    │      ├─ Stability                                                    │
+    │      ├─ Novelty                                                      │
+    │      └─ Cross-Domain                                                 │
+    │      ↓                                                               │
+    │  2. Select Initial Pattern → Generate Draft Story                    │
+    │      ↓                                                               │
+    │  3. Multi-Agent Critic Review (Methodology/Novelty/Storyteller)      │
+    │      ↓                                                               │
+    │  4. Decision: Score >= 7.0?                                          │
+    │      ├─[Yes]→ Proceed to Phase 4                                     │
+    │      └─[No] → Intelligent Refinement                                 │
+    │                 │                                                    │
+    │                 ├─ Novelty Stagnated? → [Novelty Mode]               │
+    │                 │   ├─ Traverse Novelty Patterns                     │
+    │                 │   ├─ Idea Fusion                                   │
+    │                 │   ├─ Story Reflection (Quality Assessment)         │
+    │                 │   ├─ Regenerate Story                              │
+    │                 │   ├─ Critic Review                                 │
+    │                 │   ├─ Score Dropped? → Rollback                     │
+    │                 │   └─ Fallback: Select Highest Score Version        │
+    │                 │                                                    │
+    │                 └─ Ordinary Refinement → Inject Complementary Tricks │
+    │                     ├─ Lacks Novelty → Tail Injection (Rank 5-10)    │
+    │                     ├─ Lacks Stability → Head Injection (Rank 1-3)   │
+    │                     └─ Return to Step 2                              │
+    │                                                                      │
     └──────────────────────────────────────────────────────────────────────┘
     │
     ├──────────────────────────────────────────────────────────────────────┐
-    │                      【第四阶段: RAG查重】                             │
-    │                      (约30秒)                                         │
+    │                    Phase 4: RAG Novelty Verification                 │
+    │                            (Approx. 30s)                             │
     ├──────────────────────────────────────────────────────────────────────┤
-    │                                                                        │
-    │  1. 提取关键方法 → 检索近3年顶会论文                                  │
-    │      ↓                                                                 │
-    │  2. 判断: 相似度 > 0.75?                                              │
-    │      ├─【否】→ 输出Final Story ✅                                     │
-    │      └─【是】→ 撞车! Pivot规避                                        │
-    │                 ├─ 分析撞车点                                         │
-    │                 ├─ 生成约束 (禁用技术/领域迁移)                       │
-    │                 └─ 返回第三阶段步骤2                                  │
-    │                                                                        │
+    │                                                                      │
+    │  1. Extract Key Methods → Retrieve Papers from Top Confs (Last 3 Yrs)│
+    │      ↓                                                               │
+    │  2. Decision: Similarity > 0.75?                                     │
+    │      ├─[No] → Output Final Story                                     │
+    │      └─[Yes]→ Collision! Pivot Avoidance                             │
+    │                 ├─ Analyze Collision Points                          │
+    │                 ├─ Generate Constraints (Disable Tech/Domain Shift)  │
+    │                 └─ Return to Phase 3, Step 2                         │
+    │                                                                      │
     └──────────────────────────────────────────────────────────────────────┘
     │
     ▼
-输出Final Story (JSON格式)
+Output Final Story (JSON format)
+
 ```
 
-**流程说明**:
-- **第一阶段**: 离线构建,只需运行一次
-- **第二阶段**: 实时召回,13倍提速(27秒)
-- **第三阶段**: 核心生成,智能修正机制
-- **第四阶段**: 查重验证,避免撞车
+**Workflow Explanation**:
 
-### 1.2 核心模块
+* **Phase 1**: Offline construction, run only once.
+* **Phase 2**: Real-time retrieval, 13x speedup (27 seconds).
+* **Phase 3**: Core generation, intelligent refinement mechanism.
+* **Phase 4**: Deduplication/Novelty verification to avoid collision.
 
-| 层级 | 模块 | 文件/脚本 | 作用 |
-|------|------|----------|------|
-| **数据层** | 知识图谱构建 | `build_entity_v3.py`, `build_edges.py` | 构建节点和边 |
-| **召回层** | 三路召回系统 | `recall_system.py` | 检索相关Pattern |
-| **生成层** | Pattern选择 | `pattern_selector.py` | 多维度分类Pattern |
-| **生成层** | Idea Fusion | `planner.py` | 融合创新Idea |
-| **生成层** | Story生成 | `story_generator.py` | 生成论文Story |
-| **生成层** | Story反思 | `story_reflector.py` | 评估融合质量 |
-| **生成层** | Critic评审 | `critic.py` | 多角色评审 |
-| **生成层** | 智能修正 | `refinement.py` | 迭代优化 |
-| **生成层** | RAG查重 | `verifier.py` | 查重与规避 |
-| **编排层** | Pipeline管理 | `manager.py`, `idea2story_pipeline.py` | 流程编排 |
+### 1.2 Core Modules
+
+| Layer | Module | File/Script | Function |
+| --- | --- | --- | --- |
+| **Data Layer** | Knowledge Graph Construction | `build_entity_v3.py`, `build_edges.py` | Construct nodes and edges |
+| **Retrieval Layer** | Three-Way Retrieval System | `recall_system.py` | Retrieve relevant Patterns |
+| **Generation Layer** | Pattern Selection | `pattern_selector.py` | Multi-dimensional Pattern classification |
+| **Generation Layer** | Idea Fusion | `planner.py` | Fuse innovative Ideas |
+| **Generation Layer** | Story Generation | `story_generator.py` | Generate Paper Story |
+| **Generation Layer** | Story Reflection | `story_reflector.py` | Assess fusion quality |
+| **Generation Layer** | Critic Review | `critic.py` | Multi-agent review |
+| **Generation Layer** | Intelligent Refinement | `refinement.py` | Iterative optimization |
+| **Generation Layer** | RAG Verification | `verifier.py` | Deduplication and avoidance |
+| **Orchestration Layer** | Pipeline Management | `manager.py`, `idea2story_pipeline.py` | Workflow orchestration |
 
 ---
 
-## 2. 知识图谱构建
+## 2. Knowledge Graph Construction
 
-### 2.1 数据规模
+### 2.1 Data Scale
 
 ```
-知识图谱统计:
-├─ 节点总数: 16,791
-│  ├─ Idea:    8,284 (100%覆盖)
-│  ├─ Pattern: 124 (聚类生成)
-│  ├─ Domain:  98 (聚合生成)
+Knowledge Graph Statistics:
+├─ Total Nodes: 16,791
+│  ├─ Idea:    8,284 (100% coverage)
+│  ├─ Pattern: 124 (Generated via clustering)
+│  ├─ Domain:  98 (Generated via aggregation)
 │  └─ Paper:   8,285
-└─ 边总数:   444,872
-   ├─ 基础连接边: ~25,000
-   └─ 召回辅助边: ~420,000
+└─ Total Edges:   444,872
+   ├─ Basic Connection Edges: ~25,000
+   └─ Retrieval Auxiliary Edges: ~420,000
+
 ```
 
-### 2.2 节点定义
+### 2.2 Node Definitions
 
-**Idea节点**: 论文的核心创新点
+**Idea Node**: The core innovation of the paper
+
 ```json
 {
   "idea_id": "idea_0",
-  "description": "核心想法描述...",
-  "base_problem": "基础问题...",
-  "solution_pattern": "解决方案...",
+  "description": "Core idea description...",
+  "base_problem": "Base problem...",
+  "solution_pattern": "Solution pattern...",
   "pattern_ids": ["pattern_9", ...]
 }
 ```
 
-**Pattern节点**: 写作套路/方法模板
+**Pattern Node**: Writing trope/Method unit template
+
 ```json
 {
   "pattern_id": "pattern_24",
   "name": "Reframing Graph Learning Scalability",
   "size": 331,
   "llm_enhanced_summary": {
-    "representative_ideas": "归纳性总结...",
-    "common_tricks": ["技巧1", "技巧2"]
+    "representative_ideas": "Inductive summary...",
+    "common_tricks": ["Trick 1", "Trick 2"]
   }
 }
 ```
 
-**Domain节点**: 研究领域
+**Domain Node**: Research domain
+
 ```json
 {
   "domain_id": "domain_0",
@@ -204,224 +232,241 @@
 }
 ```
 
-**Paper节点**: 具体论文
+**Paper Node**: Concrete paper
+
 ```json
 {
   "paper_id": "RUzSobdYy0V",
   "title": "Quantifying and Mitigating...",
   "domain": "Fairness & Accountability",
-  "idea": "核心想法...",
+  "idea": "Core idea...",
   "pattern_id": "pattern_9"
 }
 ```
 
-### 2.3 边定义
+### 2.3 Edge Definitions
 
-**基础连接边**:
-- `Paper → Idea` (implements): 论文实现了该Idea
-- `Paper → Pattern` (uses_pattern): 论文使用了该Pattern
-- `Paper → Domain` (in_domain): 论文属于该领域
+**Basic Connection Edges**:
 
-**召回辅助边**:
-- `Idea → Domain` (belongs_to): Idea所属领域,权重=占比
-- `Pattern → Domain` (works_well_in): Pattern在该领域的效果,权重=effectiveness
-- `Idea → Paper` (similar_to_paper): 相似度权重(路径3实时计算)
+* `Paper → Idea` (implements): The paper implements this Idea.
+* `Paper → Pattern` (uses_pattern): The paper uses this Pattern.
+* `Paper → Domain` (in_domain): The paper belongs to this Domain.
 
-### 2.4 运行方式
+**Retrieval Auxiliary Edges**:
+
+* `Idea → Domain` (belongs_to): Domain the Idea belongs to, weight = proportion.
+* `Pattern → Domain` (works_well_in): Effectiveness of Pattern in this Domain, weight = effectiveness.
+* `Idea → Paper` (similar_to_paper): Similarity weight (calculated in real-time in Path 3).
+
+### 2.4 Execution Method
 
 ```bash
-# 1. 构建节点
+# 1. Build Nodes
 python scripts/build_entity_v3.py
-# 输出: output/nodes_*.json (4个文件)
+# Output: output/nodes_*.json (4 files)
 
-# 2. 构建边
+# 2. Build Edges
 python scripts/build_edges.py
-# 输出: output/edges.json, output/knowledge_graph_v2.gpickle
+# Output: output/edges.json, output/knowledge_graph_v2.gpickle
 ```
 
-**执行时间**: 节点构建15分钟(含LLM增强) + 边构建3分钟
+**Execution Time**: Node construction 15 minutes (including LLM enhancement) + Edge construction 3 minutes.
 
 ---
 
-## 3. 三路召回系统
+## 3. Three-Way Retrieval System
 
-### 3.1 召回策略
+### 3.1 Retrieval Strategy
 
-| 路径 | 匹配对象 | 捕捉维度 | 权重 | 召回数量 |
-|------|---------|---------|------|---------|
-| **路径1** | Idea Description | 核心思想相似性 | 0.4 | Top-10 Pattern |
-| **路径2** | Domain & Sub-domains | 领域泛化能力 | 0.2 | Top-5 Pattern |
-| **路径3** | Paper Title | 研究主题相似性 | 0.4 | Top-10 Pattern |
+| Path | Matching Object | Capture Dimension | Weight | Retrieval Count |
+| --- | --- | --- | --- | --- |
+| **Path 1** | Idea Description | Core idea similarity | 0.4 | Top-10 Pattern |
+| **Path 2** | Domain & Sub-domains | Domain generalization | 0.2 | Top-5 Pattern |
+| **Path 3** | Paper Title | Research theme similarity | 0.4 | Top-10 Pattern |
 
-### 3.2 两阶段召回优化
+### 3.2 Two-Stage Retrieval Optimization
 
-**性能对比**:
+**Performance Comparison**:
+
 ```
-全量Embedding: ~7分钟 (8,284次API调用)
-两阶段召回:   ~27秒 (100次API调用)
-提速比:        13倍
+Full Embedding: ~7 minutes (8,284 API calls)
+Two-Stage Retrieval: ~27 seconds (100 API calls)
+Speedup Ratio: 13x
 ```
 
-**流程**:
+**Process**:
+
 ```
-粗排: Jaccard快速筛选 Top-100 (毫秒级)
+Coarse Ranking: Jaccard fast filtering Top-100 (Milliseconds)
     ↓
-精排: Embedding精确排序 Top-10/20 (~27秒)
+Fine Ranking: Embedding precise sorting Top-10/20 (~27 seconds)
 ```
 
-### 3.3 相似度计算
+### 3.3 Similarity Calculation
 
-**Jaccard相似度**(粗排):
+**Jaccard Similarity** (Coarse Ranking):
+
 ```python
 Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 ```
 
-**Embedding相似度**(精排):
+**Embedding Similarity** (Fine Ranking):
+
 ```python
 Cosine(A, B) = dot(emb_A, emb_B) / (norm(emb_A) * norm(emb_B))
 ```
 
-### 3.4 运行方式
+### 3.4 Execution Method
 
 ```bash
-# 独立运行
-python scripts/simple_recall_demo.py "你的研究Idea"
+# Run independently
+python scripts/simple_recall_demo.py "Your Research Idea"
 
-# 作为类使用
+# Use as a class
 from recall_system import RecallSystem
 system = RecallSystem()
 results = system.recall(user_idea, verbose=True)
+
 ```
 
-**输出**: Top-10 Pattern列表,每个包含(pattern_id, pattern_info, score)
+**Output**: List of Top-10 Patterns, each containing (pattern_id, pattern_info, score).
 
 ---
 
 ## 4. Idea2Story Pipeline
 
-### 4.1 核心机制
+### 4.1 Core Mechanisms
 
-#### (1) Pattern多维度分类
+#### (1) Multi-dimensional Pattern Classification
 
-**目标**: 确保Pattern多样性
+**Goal**: Ensure Pattern diversity.
 
-**维度**:
-- **Stability** (稳健型): Rank Top-3 + Cluster Size ≥ 15
-- **Novelty** (新颖型): Cluster Size < 10
-- **Cross-Domain** (跨域型): 来自路径2/3 + Domain不同
+**Dimensions**:
+
+* **Stability**: Rank Top-3 + Cluster Size ≥ 15.
+* **Novelty**: Cluster Size < 10.
+* **Cross-Domain**: From Path 2/3 + Different Domain.
 
 #### (2) Idea Fusion
 
-**目标**: 概念层面的有机融合,而非技术堆砌
+**Goal**: Organic fusion at the conceptual level, not just technical stacking.
 
-**流程**:
+**Process**:
+
 ```
-原Idea + 新Pattern → LLM生成融合Idea
+Original Idea + New Pattern → LLM Generated Fused Idea
     ↓
-融合Idea包含:
-  - fused_core_idea: 融合后的核心想法
-  - conceptual_bridge: 概念桥梁
-  - reframed_problem: 重构后的问题
-  - innovation_angle: 独特创新点
+Fused Idea contains:
+  - fused_core_idea: Core idea after fusion
+  - conceptual_bridge: Conceptual bridge
+  - reframed_problem: Reframed problem
+  - innovation_angle: Unique innovation angle
 ```
 
-**示例**:
+**Example**:
+
 ```
-原Idea: 使用大模型做数据增强
-新Pattern: 课程学习
-融合Idea: 基于LLM生成的难度自适应课程学习框架
+Original Idea: Use LLM for data augmentation
+New Pattern: Curriculum Learning
+Fused Idea: Difficulty-adaptive curriculum learning framework generated based on LLM
 ```
 
 #### (3) Story Reflection
 
-**目标**: 评估融合质量,确保概念统一
+**Goal**: Assess fusion quality and ensure conceptual unity.
 
-**评分**:
+**Scoring**:
+
 ```
-fusion_quality = 0.4 × 连贯性 + 0.4 × 融合丰富度 + 0.2 × Fusion Idea奖励
+fusion_quality = 0.4 × Coherence + 0.4 × Fusion Richness + 0.2 × Fusion Idea Reward
 ```
 
-**阈值**: `fusion_quality >= 0.65` 认为融合成功
+**Threshold**: `fusion_quality >= 0.65` is considered a successful fusion.
 
-#### (4) Critic多角色评审
+#### (4) Multi-Agent Critic Review
 
-**角色**:
-- **Reviewer A** (Methodology): 技术合理性
-- **Reviewer B** (Novelty): 创新性
-- **Reviewer C** (Storyteller): 叙事完整性
+**Roles**:
 
-**通过标准**: 平均分 >= 7.0
+* **Reviewer A** (Methodology): Technical soundness.
+* **Reviewer B** (Novelty): Innovation.
+* **Reviewer C** (Storyteller): Narrative completeness.
 
-#### (5) 智能修正
+**Pass Standard**: Average Score >= 7.0.
 
-**新颖性模式**:
-- **触发**: 新颖性分数停滞(≤ 上一轮 + 0.5)
-- **流程**: 遍历所有Novelty Pattern,每个都经过Fusion→Reflection→生成→Critic
-- **兜底**: 选择最高分版本
+#### (5) Intelligent Refinement
 
-**分数退化回滚**:
-- **触发**: 任一维度分数下降 > 0.1
-- **流程**: 恢复Story + 标记失败 + 删除Tricks + 继续迭代
+**Novelty Mode**:
 
-**普通修正**:
-- **长尾注入**: 缺新颖性 → 注入Rank 5-10的冷门Pattern
-- **头部注入**: 缺稳定性 → 注入Rank 1-3的成熟Pattern
+* **Trigger**: Novelty score stagnation (≤ Previous Round + 0.5).
+* **Process**: Traverse all Novelty Patterns, each undergoing Fusion → Reflection → Generation → Critic.
+* **Fallback**: Select the version with the highest score.
 
-#### (6) RAG查重与规避
+**Score Degradation Rollback**:
 
-**查重**: 检索近3年顶会论文,相似度 > 0.75 认为撞车
+* **Trigger**: Any dimension score drops > 0.1.
+* **Process**: Restore Story + Mark failure + Delete Tricks + Continue iteration.
 
-**规避**: Pivot策略生成约束(领域迁移、设定限制等),重新生成Story
+**Ordinary Refinement**:
 
-### 4.2 运行方式
+* **Tail Injection**: Lacks novelty → Inject unpopular Patterns (Rank 5-10).
+* **Head Injection**: Lacks stability → Inject mature Patterns (Rank 1-3).
+
+#### (6) RAG Novelty Verification & Avoidance
+
+**Verification**: Retrieve top conference papers from the last 3 years; Similarity > 0.75 is considered a collision.
+
+**Avoidance**: Pivot strategy to generate constraints (Domain shift, setting limitations, etc.), then regenerate Story.
+
+### 4.2 Execution Method
 
 ```bash
-python scripts/idea2story_pipeline.py "你的研究Idea"
+python scripts/idea2story_pipeline.py "Your Research Idea"
 ```
 
-**输出**:
+**Output**:
+
 ```
 output/
-├── final_story.json          # 最终论文Story
-├── pipeline_result.json      # 完整流程结果
-└── log.json                  # 详细日志
+├── final_story.json          # Final Paper Story
+├── pipeline_result.json      # Complete Pipeline Result
+└── log.json                  # Detailed Log
 ```
 
-**执行时间**: 3-10分钟(取决于迭代次数)
+**Execution Time**: 3-10 minutes (depending on iteration count).
 
 ---
 
-## 5. 参数配置总览
+## 5. Configuration Overview
 
-### 5.1 知识图谱构建
+### 5.1 Knowledge Graph Construction
 
 ```python
 # scripts/build_entity_v3.py
 
-# 数据源路径
+# Data source paths
 DATA_DIR = PROJECT_ROOT / "data" / "ICLR_25"
 ASSIGNMENTS_FILE = DATA_DIR / "assignments.jsonl"
 CLUSTER_LIBRARY_FILE = DATA_DIR / "cluster_library_sorted.jsonl"
 PATTERN_DETAILS_FILE = DATA_DIR / "iclr_patterns_full.jsonl"
 
-# LLM API配置
+# LLM API Config
 SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
 LLM_API_URL = "https://api.siliconflow.cn/v1/chat/completions"
 LLM_MODEL = "Qwen/Qwen2.5-7B-Instruct"
 ```
 
-### 5.2 召回系统
+### 5.2 Retrieval System
 
 ```python
 # scripts/recall_system.py
 
 class RecallConfig:
-    # 路径权重
-    PATH1_WEIGHT = 0.4  # 相似Idea
-    PATH2_WEIGHT = 0.2  # 领域相关
-    PATH3_WEIGHT = 0.4  # 相似Paper
+    # Path Weights
+    PATH1_WEIGHT = 0.4  # Similar Idea
+    PATH2_WEIGHT = 0.2  # Domain Relevance
+    PATH3_WEIGHT = 0.4  # Similar Paper
 
-    # 召回数量
+    # Retrieval Counts
     PATH1_TOP_K_IDEAS = 10
     PATH1_FINAL_TOP_K = 10
     PATH2_TOP_K_DOMAINS = 5
@@ -430,7 +475,7 @@ class RecallConfig:
     PATH3_FINAL_TOP_K = 10
     FINAL_TOP_K = 10
 
-    # 两阶段召回
+    # Two-Stage Retrieval
     USE_EMBEDDING = True
     TWO_STAGE_RECALL = True
     COARSE_RECALL_SIZE = 100
@@ -443,16 +488,16 @@ class RecallConfig:
 # scripts/pipeline/config.py
 
 class PipelineConfig:
-    # Pattern选择
+    # Pattern Selection
     SELECT_PATTERN_COUNT = 3
     CONSERVATIVE_RANK_RANGE = (0, 2)
     INNOVATIVE_CLUSTER_SIZE_THRESHOLD = 10
 
-    # Critic阈值
+    # Critic Threshold
     PASS_SCORE = 7.0
     MAX_REFINE_ITERATIONS = 3
 
-    # 新颖性模式
+    # Novelty Mode
     NOVELTY_MODE_MAX_PATTERNS = 10
     NOVELTY_SCORE_THRESHOLD = 6.0
     NOVELTY_STAGNATION_DELTA = 0.5
@@ -460,18 +505,18 @@ class PipelineConfig:
     # Reflection
     FUSION_QUALITY_THRESHOLD = 0.65
 
-    # 回滚
+    # Rollback
     SCORE_DEGRADATION_THRESHOLD = 0.1
 
-    # RAG查重
+    # RAG Verification
     COLLISION_THRESHOLD = 0.75
 
-    # Refinement策略
+    # Refinement Strategy
     TAIL_INJECTION_RANK_RANGE = (4, 9)
     HEAD_INJECTION_RANK_RANGE = (0, 2)
     HEAD_INJECTION_CLUSTER_THRESHOLD = 15
 
-# LLM配置
+# LLM Config
 LLM_API_KEY = os.getenv("SILICONFLOW_API_KEY")
 LLM_API_URL = "https://api.siliconflow.cn/v1/chat/completions"
 LLM_MODEL = "Qwen/Qwen3-14B"
@@ -479,435 +524,452 @@ LLM_MODEL = "Qwen/Qwen3-14B"
 
 ---
 
-## 6. 完整运行流程
+## 6. Complete Workflow
 
-### 6.1 环境准备
+### 6.1 Environment Setup
 
 ```bash
-# 1. 克隆项目
+# 1. Clone Project
 cd /Users/gaoge/code/mycode/Idea2Paper/Paper-KG-Pipeline
 
-# 2. 安装依赖
+# 2. Install Dependencies
 pip install -r requirements.txt
 
-# 3. 设置环境变量
+# 3. Set Environment Variable
 export SILICONFLOW_API_KEY="your_api_key_here"
 ```
 
-### 6.2 一次性构建
+### 6.2 One-Time Build
 
 ```bash
-# 构建知识图谱(只需运行一次)
-python scripts/build_entity_v3.py   # 15分钟
-python scripts/build_edges.py       # 3分钟
+# Build Knowledge Graph (Run only once)
+python scripts/build_entity_v3.py   # 15 minutes
+python scripts/build_edges.py       # 3 minutes
 ```
 
-### 6.3 使用Pipeline
+### 6.3 Use Pipeline
 
 ```bash
-# 生成论文Story
-python scripts/idea2story_pipeline.py "你的研究Idea描述"
+# Generate Paper Story
+python scripts/idea2story_pipeline.py "Your Research Idea Description"
 
-# 示例
-python scripts/idea2story_pipeline.py "使用强化学习优化大模型推理效率"
+# Example
+python scripts/idea2story_pipeline.py "Optimizing Large Model Inference Efficiency with Reinforcement Learning"
 ```
 
-### 6.4 查看结果
+### 6.4 View Results
 
 ```bash
-# 查看最终Story
+# View Final Story
 cat output/final_story.json
 
-# 查看完整流程
+# View Complete Pipeline
 cat output/pipeline_result.json
 
-# 查看详细日志
+# View Detailed Log
 cat output/log.json | jq '.'
 ```
 
 ---
 
-## 7. 核心创新点
+## 7. Core Innovations
 
-### 7.1 知识图谱层面
+### 7.1 Knowledge Graph Level
 
-✅ **LLM增强Pattern**: 为每个Pattern cluster生成归纳性总结
-✅ **双层描述**: 具体示例 + 全局总结,既可学习又可理解
-✅ **质量导向边权重**: 基于论文质量和Pattern效果计算边权重
+✅ **LLM-Enhanced Pattern**: Generate inductive summaries for each Pattern cluster.<br>
+✅ **Dual-Layer Description**: Concrete examples + Global summary, enabling both learning and understanding.<br>
+✅ **Quality-Oriented Edge Weights**: Calculate edge weights based on paper quality and Pattern effectiveness.<br>
 
-### 7.2 召回层面
+### 7.2 Retrieval Level
 
-✅ **三路互补召回**: 从思想、领域、论文三个维度捕捉相关性
-✅ **两阶段优化**: Jaccard粗排 + Embedding精排,提速13倍
-✅ **实时计算路径3**: 避免预构建冗余边,确保互补性
+✅ **Three-Way Complementary Retrieval**: Capture relevance from Idea, Domain, and Paper dimensions.<br>
+✅ **Two-Stage Optimization**: Jaccard coarse ranking + Embedding fine ranking, 13x speedup.<br>
+✅ **Real-Time Path 3 Calculation**: Avoid pre-building redundant edges, ensuring complementarity.<br>
 
-### 7.3 生成层面
+### 7.3 Generation Level
 
-✅ **Idea Fusion**: 概念层面的有机融合,而非技术堆砌
-✅ **Story Reflection**: 反思融合质量,评估概念统一性
-✅ **新颖性优先模式**: 停滞时自动升级,系统性提升创新性
-✅ **智能回滚**: 避免无效修正,提高迭代效率
-✅ **兜底策略**: 保证输出质量,选择最高分版本
-
----
-
-## 8. 系统优势
-
-### 8.1 自动化程度高
-
-- ✅ 完全自动化流程,无需人工干预
-- ✅ 智能决策机制(新颖性模式、回滚、兜底)
-- ✅ 自适应参数调整
-
-### 8.2 质量保障多层
-
-1. **Pattern层**: LLM增强的高质量Pattern库
-2. **召回层**: 三路互补召回,覆盖全面
-3. **融合层**: Idea Fusion确保概念统一
-4. **反思层**: Story Reflection评估融合质量
-5. **评审层**: 三角色Critic全面评估
-6. **查重层**: RAG避免撞车
-
-### 8.3 效率优化充分
-
-- ✅ 两阶段召回提速13倍(7分钟→27秒)
-- ✅ 智能回滚避免无效迭代
-- ✅ Pattern失败标记避免重复尝试
-- ✅ LLM响应缓存减少API调用
-
-### 8.4 可扩展性强
-
-- ✅ 模块化设计,易于添加新功能
-- ✅ 支持增量更新知识图谱
-- ✅ 可适配其他会议数据源
-- ✅ 可添加新的召回路径
+✅ **Idea Fusion**: Organic fusion at the conceptual level rather than technical stacking.<br>
+✅ **Story Reflection**: Reflect on fusion quality to assess conceptual unity.<br>
+✅ **Novelty-First Mode**: Automatically upgrade to systemically improve innovation when stagnated.<br>
+✅ **Intelligent Rollback**: Avoid ineffective refinement to improve iteration efficiency.<br>
+✅ **Fallback Strategy**: Guarantee output quality by selecting the highest-scoring version.<br>
 
 ---
 
-## 9. 当前局限与改进方向
+## 8. System Advantages
 
-### 9.1 数据层面
+### 8.1 High Degree of Automation
 
-**当前局限**:
-- ⚠️ Domain粒度过粗,98个Domain覆盖8,285篇论文
+* ✅ Fully automated process, no manual intervention required.
+* ✅ Intelligent decision mechanisms (Novelty Mode, Rollback, Fallback).
+* ✅ Adaptive parameter adjustment.
 
-**改进方向**:
-- 📌 引入Domain层级结构(主领域→子领域)
-- 📌 使用sub_domains进行精细匹配
-- 📌 扩展到更多会议的 Review 数据
+### 8.2 Multi-Layer Quality Assurance
 
-### 9.2 召回层面
+1. **Pattern Layer**: LLM-enhanced high-quality Pattern library.
+2. **Retrieval Layer**: Three-way complementary retrieval, comprehensive coverage.
+3. **Fusion Layer**: Idea Fusion ensures conceptual unity.
+4. **Reflection Layer**: Story Reflection assesses fusion quality.
+5. **Review Layer**: Three-role Critic for comprehensive evaluation.
+6. **Verification Layer**: RAG avoids collision.
 
-**当前局限**:
-- ⚠️ 路径2 Domain匹配基于关键词,可能不精确
-- ⚠️ 召回速度仍有优化空间(27秒)
+### 8.3 Extensive Efficiency Optimization
 
-**改进方向**:
-- 📌 使用Embedding计算Idea与Domain的语义相似度
-- 📌 引入向量数据库(Faiss/Milvus),提速到1-3秒
-- 📌 预计算并缓存所有Embedding
+* ✅ Two-stage retrieval speeds up by 13x (7 mins → 27 secs).
+* ✅ Intelligent rollback avoids ineffective iterations.
+* ✅ Pattern failure marking avoids repeated attempts.
+* ✅ LLM response caching reduces API calls.
 
-### 9.3 生成层面
+### 8.4 Strong Scalability
 
-**当前局限**:
-- ⚠️ Fusion质量评分依赖LLM,可能不够稳定
-- ⚠️ 新颖性模式遍历10个Pattern可能耗时较长
-
-**改进方向**:
-- 📌 引入可学习的融合质量评分模型
-- 📌 根据历史数据优化Pattern选择顺序
-- 📌 并行生成多个Story候选
-
-### 9.4 评审层面
-
-**当前局限**:
-- ⚠️ Critic评分依赖LLM,可能存在波动
-- ⚠️ 无用户反馈机制
-
-**改进方向**:
-- 📌 收集真实审稿数据,训练专用Critic模型
-- 📌 引入用户反馈,在线学习调整权重
-- 📌 A/B测试不同策略的效果
+* ✅ Modular design, easy to add new features.
+* ✅ Supports incremental updates to the knowledge graph.
+* ✅ Adaptable to other conference data sources.
+* ✅ Can add new retrieval paths.
 
 ---
 
-## 10. 文档索引
+## 9. Current Limitations & Future Directions
 
-### 10.1 核心文档
+### 9.1 Data Level
 
-| 文档 | 路径 | 内容 |
-|------|------|------|
-| **项目总结** | `docs/00_PROJECT_OVERVIEW.md` | 本文档,整体概述 |
-| **知识图谱构建** | `docs/01_KG_CONSTRUCTION.md` | 数据源、节点、边、运行方式 |
-| **召回系统** | `docs/02_RECALL_SYSTEM.md` | 三路召回、相似度计算、参数配置 |
-| **Idea2Story Pipeline** | `docs/03_IDEA2STORY_PIPELINE.md` | Pattern选择、Fusion、Reflection、Critic |
+**Current Limitation**:
 
-### 10.2 辅助文档
+* ⚠️ Domain granularity is too coarse; 98 Domains cover 8,285 papers.
 
-| 文档 | 路径 | 内容 |
-|------|------|------|
-| **边类型说明** | `docs/EDGE_TYPES.md` | 详细的边定义和权重计算 |
-| **Pattern评分解释** | `docs/PATTERN_SCORING_EXPLAINED.md` | Pattern得分计算逻辑 |
-| **两阶段召回优化** | `docs/TWO_STAGE_RECALL_OPTIMIZATION.md` | 召回性能优化细节 |
-| **数据格式对比** | `docs/Data_Format_Comparison.md` | V2 vs V3数据格式变化 |
+**Future Direction**:
 
-### 10.3 历史文档(归档)
+* 📌 Introduce Domain hierarchy (Main Domain → Sub-domain).
+* 📌 Use sub_domains for fine-grained matching.
+* 📌 Extend to Review data from more conferences.
 
-以下文档记录了系统演进历史,但核心内容已整合到上述4个主文档中:
-- `NOVELTY_MODE_FIX.md`
-- `REFLECTION_REGENERATION_FIX.md`
-- `WORKFLOW_CORRECTION_2025-01-25.md`
-- `REFINE_SYSTEM_UPGRADE.md`
-- `RECALL_USAGE_V3.md`
-- 等
+### 9.2 Retrieval Level
+
+**Current Limitation**:
+
+* ⚠️ Path 2 Domain matching is based on keywords, which may not be precise.
+* ⚠️ Retrieval speed still has room for optimization (27 seconds).
+
+**Future Direction**:
+
+* 📌 Use Embedding to calculate semantic similarity between Idea and Domain.
+* 📌 Introduce vector database (Faiss/Milvus), speed up to 1-3 seconds.
+* 📌 Pre-compute and cache all Embeddings.
+
+### 9.3 Generation Level
+
+**Current Limitation**:
+
+* ⚠️ Fusion quality scoring relies on LLM, which may be unstable.
+* ⚠️ Novelty Mode traversing 10 Patterns may be time-consuming.
+
+**Future Direction**:
+
+* 📌 Introduce a learnable fusion quality scoring model.
+* 📌 Optimize Pattern selection order based on historical data.
+* 📌 Generate multiple Story candidates in parallel.
+
+### 9.4 Review Level
+
+**Current Limitation**:
+
+* ⚠️ Critic scoring relies on LLM and may fluctuate.
+* ⚠️ No user feedback mechanism.
+
+**Future Direction**:
+
+* 📌 Collect real review data to train dedicated Critic models.
+* 📌 Introduce user feedback for online learning and weight adjustment.
+* 📌 A/B test effects of different strategies.
 
 ---
 
-## 11. 代码结构
+## 10. Documentation Index
+
+### 10.1 Core Documentation
+
+| Document | Path | Content |
+| --- | --- | --- |
+| **Project Summary** | `docs/00_PROJECT_OVERVIEW.md` | This document, overall overview |
+| **KG Construction** | `docs/01_KG_CONSTRUCTION.md` | Data source, nodes, edges, execution method |
+| **Retrieval System** | `docs/02_RECALL_SYSTEM.md` | Three-way retrieval, similarity calculation, config |
+| **Idea2Story Pipeline** | `docs/03_IDEA2STORY_PIPELINE.md` | Pattern selection, Fusion, Reflection, Critic |
+
+### 10.2 Auxiliary Documentation
+
+| Document | Path | Content |
+| --- | --- | --- |
+| **Edge Types** | `docs/EDGE_TYPES.md` | Detailed edge definitions and weight calculations |
+| **Pattern Scoring** | `docs/PATTERN_SCORING_EXPLAINED.md` | Pattern score calculation logic |
+| **Two-Stage Retrieval** | `docs/TWO_STAGE_RECALL_OPTIMIZATION.md` | Retrieval performance optimization details |
+| **Data Format** | `docs/Data_Format_Comparison.md` | V2 vs V3 data format changes |
+
+### 10.3 Historical Documentation (Archived)
+
+The following documents record system evolution history, but core content has been integrated into the 4 main documents above:
+
+* `NOVELTY_MODE_FIX.md`
+* `REFLECTION_REGENERATION_FIX.md`
+* `WORKFLOW_CORRECTION_2025-01-25.md`
+* `REFINE_SYSTEM_UPGRADE.md`
+* `RECALL_USAGE_V3.md`
+* etc.
+
+---
+
+## 11. Code Structure
 
 ```
 Paper-KG-Pipeline/
-├── data/                           # 数据源
+├── data/                           # Data Sources
 │   └── ICLR_25/
 │       ├── assignments.jsonl
 │       ├── cluster_library_sorted.jsonl
 │       └── iclr_patterns_full.jsonl
 │
-├── output/                         # 输出文件
-│   ├── nodes_*.json               # 4类节点
-│   ├── edges.json                 # 边数据
-│   ├── knowledge_graph_v2.gpickle # NetworkX图谱
-│   ├── final_story.json           # 最终Story
-│   └── pipeline_result.json       # 流程结果
+├── output/                         # Output Files
+│   ├── nodes_*.json               # 4 types of nodes
+│   ├── edges.json                 # Edge data
+│   ├── knowledge_graph_v2.gpickle # NetworkX graph
+│   ├── final_story.json           # Final Story
+│   └── pipeline_result.json       # Pipeline results
 │
-├── scripts/                        # 核心脚本
-│   ├── build_entity_v3.py         # 构建节点
-│   ├── build_edges.py             # 构建边
-│   ├── recall_system.py           # 召回系统(类封装)
-│   ├── simple_recall_demo.py      # 召回Demo
-│   ├── idea2story_pipeline.py     # Pipeline主入口
+├── scripts/                        # Core Scripts
+│   ├── build_entity_v3.py         # Build nodes
+│   ├── build_edges.py             # Build edges
+│   ├── recall_system.py           # Retrieval system (Class encapsulation)
+│   ├── simple_recall_demo.py      # Retrieval Demo
+│   ├── idea2story_pipeline.py     # Pipeline Main Entry
 │   │
-│   └── pipeline/                   # Pipeline模块
-│       ├── config.py              # 配置参数
-│       ├── manager.py             # 流程编排
-│       ├── pattern_selector.py    # Pattern分类
+│   └── pipeline/                   # Pipeline Modules
+│       ├── config.py              # Configuration parameters
+│       ├── manager.py             # Workflow orchestration
+│       ├── pattern_selector.py    # Pattern classification
 │       ├── planner.py             # Idea Fusion
-│       ├── story_generator.py     # Story生成
-│       ├── story_reflector.py     # Story反思
-│       ├── critic.py              # Critic评审
-│       ├── refinement.py          # 智能修正
-│       ├── verifier.py            # RAG查重
-│       └── utils.py               # 工具函数
+│       ├── story_generator.py     # Story generation
+│       ├── story_reflector.py     # Story reflection
+│       ├── critic.py              # Critic review
+│       ├── refinement.py          # Intelligent refinement
+│       ├── verifier.py            # RAG verification
+│       └── utils.py               # Utility functions
 │
-├── docs/                           # 文档
-│   ├── 00_PROJECT_OVERVIEW.md     # 项目总结(本文档)
-│   ├── 01_KG_CONSTRUCTION.md      # 知识图谱构建
-│   ├── 02_RECALL_SYSTEM.md        # 召回系统
+├── docs/                           # Documentation
+│   ├── 00_PROJECT_OVERVIEW.md     # Project Summary (This file)
+│   ├── 01_KG_CONSTRUCTION.md      # KG Construction
+│   ├── 02_RECALL_SYSTEM.md        # Retrieval System
 │   └── 03_IDEA2STORY_PIPELINE.md  # Idea2Story Pipeline
 │
-└── requirements.txt                # 依赖
+└── requirements.txt                # Dependencies
 ```
 
 ---
 
-## 12. 关键指标
+## 12. Key Metrics
 
-### 12.1 数据规模
-
-```
-知识图谱:
-  - 节点: 16,791 个
-  - 边:   444,872 条
-  - Pattern: 124 个(124个已LLM增强)
-  - Idea覆盖率: 100% (8,284/8,285)
-```
-
-### 12.2 性能指标
+### 12.1 Data Scale
 
 ```
-召回速度:
-  - 全量Embedding: ~7分钟
-  - 两阶段召回:   ~27秒
-  - 提速比:        13倍
-
-Pipeline执行时间:
-  - 最快: 3分钟 (首次通过)
-  - 典型: 5-7分钟 (2-3轮修正)
-  - 最慢: 10分钟 (新颖性模式)
+Knowledge Graph:
+  - Nodes: 16,791
+  - Edges: 444,872
+  - Pattern: 124 (124 LLM-enhanced)
+  - Idea Coverage: 100% (8,284/8,285)
 ```
 
-### 12.3 质量指标
+### 12.2 Performance Metrics
 
 ```
-Critic评审:
-  - 通过标准: 平均分 >= 7.0
-  - 维度: Methodology, Novelty, Storyteller
-  - 新颖性模式提升: 0.5-1.5分
+Retrieval Speed:
+  - Full Embedding: ~7 minutes
+  - Two-Stage Retrieval: ~27 seconds
+  - Speedup Ratio: 13x
 
-Fusion质量:
-  - 阈值: >= 0.65
-  - 典型值: 0.68-0.75
-  - 评分维度: 连贯性(40%) + 融合丰富度(40%) + Fusion Idea奖励(20%)
+Pipeline Execution Time:
+  - Fastest: 3 minutes (First pass)
+  - Typical: 5-7 minutes (2-3 refinement rounds)
+  - Slowest: 10 minutes (Novelty Mode)
+```
+
+### 12.3 Quality Metrics
+
+```
+Critic Review:
+  - Pass Standard: Average Score >= 7.0
+  - Dimensions: Methodology, Novelty, Storyteller
+  - Novelty Mode Boost: 0.5-1.5 points
+
+Fusion Quality:
+  - Threshold: >= 0.65
+  - Typical Value: 0.68-0.75
+  - Scoring Dimensions: Coherence (40%) + Fusion Richness (40%) + Fusion Idea Reward (20%)
 ```
 
 ---
 
-## 13. 使用建议
+## 13. Usage Recommendations
 
-### 13.1 快速开始
+### 13.1 Quick Start
 
 ```bash
-# 1. 首次运行(构建知识图谱)
+# 1. First Run (Build Knowledge Graph)
 python scripts/build_entity_v3.py
 python scripts/build_edges.py
 
-# 2. 生成论文Story
-python scripts/idea2story_pipeline.py "你的研究Idea"
+# 2. Generate Paper Story
+python scripts/idea2story_pipeline.py "Your Research Idea"
 
-# 3. 查看结果
+# 3. View Results
 cat output/final_story.json
 ```
 
-### 13.2 参数调优
+### 13.2 Parameter Tuning
 
-**提升新颖性**:
+**Improve Novelty**:
+
 ```python
-# 增加新颖性模式尝试次数
-PipelineConfig.NOVELTY_MODE_MAX_PATTERNS = 15  # 默认10
+# Increase Novelty Mode attempts
+PipelineConfig.NOVELTY_MODE_MAX_PATTERNS = 15  # Default 10
 
-# 提高新颖性权重
-RecallConfig.PATH1_WEIGHT = 0.5  # 默认0.4,提高相似Idea权重
+# Increase Novelty weight
+RecallConfig.PATH1_WEIGHT = 0.5  # Default 0.4, increase Similar Idea weight
 ```
 
-**提升稳定性**:
-```python
-# 降低融合质量阈值
-PipelineConfig.FUSION_QUALITY_THRESHOLD = 0.60  # 默认0.65
+**Improve Stability**:
 
-# 增加头部Pattern权重
-RecallConfig.PATH3_WEIGHT = 0.5  # 默认0.4,提高高质量Paper权重
+```python
+# Lower Fusion Quality Threshold
+PipelineConfig.FUSION_QUALITY_THRESHOLD = 0.60  # Default 0.65
+
+# Increase Head Pattern weight
+RecallConfig.PATH3_WEIGHT = 0.5  # Default 0.4, increase High-Quality Paper weight
 ```
 
-**加速召回**:
+**Accelerate Retrieval**:
+
 ```python
-# 减少召回数量
-RecallConfig.PATH1_TOP_K_IDEAS = 5   # 默认10
-RecallConfig.PATH3_TOP_K_PAPERS = 10 # 默认20
+# Reduce Retrieval Count
+RecallConfig.PATH1_TOP_K_IDEAS = 5   # Default 10
+RecallConfig.PATH3_TOP_K_PAPERS = 10 # Default 20
 ```
 
-### 13.3 监控关键事件
+### 13.3 Monitoring Key Events
 
 ```bash
-# 新颖性模式激活
+# ✅ Novelty mode activated
 grep "激活【新颖性模式】" output/log.json
 
-# 融合质量评分
+# 📊 Fusion quality evaluation
 grep "融合质量评分" output/log.json
 
-# 回滚事件
+# 🔁 Rollback triggered 
 grep "【ROLLBACK TRIGGERED】" output/log.json
 
-# 最终通过
+# 🎉 Final Pass
 grep "🎉 Critic 评审通过" output/log.json
 ```
 
 ---
 
-## 14. 故障排查
+## 14. Troubleshooting
 
-### 14.1 环境问题
+### 14.1 Environment Issues
 
-**Q: API key无效**
+**Q: API key invalid**
+
 ```bash
-# 检查环境变量
+# Check Environment Variable
 echo $SILICONFLOW_API_KEY
 
-# 设置环境变量
+# Set Environment Variable
 export SILICONFLOW_API_KEY="your_key_here"
 ```
 
-**Q: 依赖缺失**
+**Q: Missing dependencies**
+
 ```bash
-# 重新安装依赖
+# Reinstall dependencies
 pip install -r requirements.txt --upgrade
 ```
 
-### 14.2 数据问题
+### 14.2 Data Issues
 
-**Q: 节点文件不存在**
+**Q: Node files do not exist**
+
 ```bash
-# 重新构建知识图谱
+# Rebuild Knowledge Graph
 python scripts/build_entity_v3.py
 python scripts/build_edges.py
 ```
 
-**Q: 召回结果为空**
+**Q: Retrieval result is empty**
+
 ```bash
-# 检查知识图谱是否构建成功
+# Check if Knowledge Graph is built successfully
 ls -lh output/nodes_*.json
 ls -lh output/knowledge_graph_v2.gpickle
 ```
 
-### 14.3 Pipeline问题
+### 14.3 Pipeline Issues
 
-**Q: Fusion质量总是低于阈值**
+**Q: Fusion quality always below threshold**
+
 ```python
-# 降低阈值或改进Fusion Prompt
+# Lower threshold or improve Fusion Prompt
 PipelineConfig.FUSION_QUALITY_THRESHOLD = 0.60
 ```
 
-**Q: 新颖性模式遍历完仍未通过**
+**Q: Novelty Mode traversed all but still did not pass**
+
 ```
-# 检查log中的兜底策略
+# Check fallback strategy in log
 grep "兜底策略" output/log.json
-# 系统会自动选择最高分版本输出
+# System automatically selects the highest scoring version to output
 ```
 
 ---
 
-## 15. 总结
+## 15. Summary
 
-### 15.1 核心成果
+### 15.1 Core Achievements
 
-✅ **完整的知识图谱系统**: 16,791节点,444,872条边
-✅ **高效的召回系统**: 13倍提速,秒级响应
-✅ **智能的生成Pipeline**: Fusion+Reflection+Critic+智能修正
-✅ **质量保障机制**: 多层次检查,自动回滚,兜底策略
-✅ **完整的文档体系**: 4个核心文档,覆盖构建、召回、生成
+✅ **Complete Knowledge Graph System**: 16,791 nodes, 444,872 edges. <br>
+✅ **Efficient Retrieval System**: 13x speedup, second-level response.<br>
+✅ **Intelligent Generation Pipeline**: Fusion + Reflection + Critic + Intelligent Refinement.<br>
+✅ **Quality Assurance Mechanism**: Multi-layer checks, automatic rollback, fallback strategy.<br>
+✅ **Complete Documentation System**: 4 core documents covering construction, retrieval, generation.<br>
 
-### 15.2 技术亮点
+### 15.2 Technical Highlights
 
-✅ **概念层面融合**: Idea Fusion实现有机统一而非技术堆砌
-✅ **融合质量反思**: Story Reflector评估融合效果
-✅ **新颖性优先**: 停滞时自动升级为新颖性模式
-✅ **智能回滚**: 避免无效修正,提高效率
-✅ **LLM增强Pattern**: 双层描述提升可用性
+✅ **Conceptual Level Fusion**: Idea Fusion achieves organic unity rather than technical stacking.<br>
+✅ **Fusion Quality Reflection**: Story Reflector assesses fusion effectiveness.<br>
+✅ **Novelty First**: Automatically upgrades to Novelty Mode when stagnated.<br>
+✅ **Intelligent Rollback**: Avoids ineffective refinement, improving efficiency.<br>
+✅ **LLM-Enhanced Pattern**: Dual-layer description improves usability.<br>
 
-### 15.3 应用价值
+### 15.3 Application Value
 
-✅ **科研辅助**: 帮助研究人员快速生成论文框架
-✅ **创新探索**: 通过Pattern融合发现新研究方向
-✅ **写作指导**: 提供结构化的论文组织建议
-✅ **文献调研**: 基于知识图谱快速定位相关工作
+✅ **Research Assistance**: Helps researchers quickly generate paper frameworks.<br>
+✅ **Innovation Exploration**: Discovers new research directions through Pattern fusion.<br>
+✅ **Writing Guidance**: Provides structured paper organization suggestions.<br>
+✅ **Literature Survey**: Quickly locates relevant work based on Knowledge Graph.<br>
 
-### 15.4 未来展望
+### 15.4 Future Outlook
 
-📌 **数据扩展**: 整合更多会议数据(CVPR, NeurIPS, ACL等)
-📌 **模型优化**: 训练专用的Fusion和Critic模型
-📌 **用户交互**: 引入用户反馈,在线学习优化
-📌 **多模态支持**: 整合图表、公式、代码等多模态信息
-
----
-
-## 16. 致谢
-
-感谢ICLR 2025论文数据集的支持,感谢SiliconFlow提供的LLM API服务。
+📌 **Data Expansion**: Integrate data from more conferences (CVPR, NeurIPS, ACL, etc.).<br>
+📌 **Model Optimization**: Train dedicated Fusion and Critic models.<br>
+📌 **User Interaction**: Introduce user feedback for online learning and optimization.<br>
+📌 **Multi-modal Support**: Integrate charts, formulas, code, and other multi-modal information.<br>
 
 ---
 
-**生成时间**: 2026-01-25
-**版本**: V1.0
-**作者**: Idea2Paper Team
+## 16. Acknowledgements
 
-**联系方式**: 参考各核心文档获取详细技术支持
+Thanks to the ICLR 2025 paper dataset for support, and SiliconFlow for providing LLM API services.
 
+---
+
+**Generated Date**: 2026-01-25
+**Version**: V1.0
+**Author**: Idea2Paper Team
+
+**Contact**: Refer to core documents for detailed technical support.
