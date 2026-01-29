@@ -1,4 +1,10 @@
-<h1 align="center"> Idea2Paper: Automated Pipeline for Transforming Research Concepts into Complete Scientific Narratives </h1>
+<p align="center">
+  <img src="assets/images/logo.png" alt="Idea2Paper Logo" width="120">
+</p>
+
+<h1 align="center">
+  Idea2Paper: Automated Pipeline for Transforming Research Concepts into Complete Scientific Narratives
+</h1>
 
 <p align="center">
   <a href="https://www.python.org/">
@@ -23,6 +29,10 @@
 **Idea2Paper** is an end-to-end pipeline that transforms your research **Idea** into a submission-ready **Story** (Scientific Narrative Skeleton).
 
 **Pipeline**: 💡 **KG Retrieval** → 🧩 **Pattern Selection** → ✍️ **Story Generation** → 👥 **Calibrated Review** → 🔁 **Refinement** → 🧪 **Novelty Verification**
+
+<p align="center">
+  <img src="assets/images/idea2storypipeline.png" width="800">
+</p>
 
 ### Core Features
 
