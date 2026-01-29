@@ -1,10 +1,12 @@
-<p align="center">
-  <img src="assets/images/logo.png" alt="Idea2Paper Logo" width="120">
-</p>
+<h1 align="center">
+  <img src="assets/images/logo.png" alt="Idea2Paper Logo" width="140" style="vertical-align: middle; margin-right: 10px;">
+  Idea2Paper:
+</h1>
 
 <h1 align="center">
-  Idea2Paper: Automated Pipeline for Transforming Research Concepts into Complete Scientific Narratives
+   Automated Pipeline for Transforming Research Concepts into Complete Scientific Narratives
 </h1>
+
 
 <p align="center">
   <a href="https://www.python.org/">
