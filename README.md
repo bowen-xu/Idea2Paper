@@ -1,12 +1,12 @@
-<table align="center">
-  <tr>
-    <td>
-      <img src="assets/images/logo.png" alt="Idea2Paper Logo" width="150">
+<table align="center" style="border: none; border-collapse: collapse;">
+  <tr style="border: none;">
+    <td style="border: none; padding: 0;">
+      <img src="assets/images/logo.png" alt="Idea2Paper Logo" width="180">
     </td>
-    <td style="vertical-align: middle; padding-left: 14px;">
+    <td style="border: none; padding: 0 0 0 14px; vertical-align: middle;">
       <h1 style="margin: 0;">
         Idea2Paper: <br>
-   Automated Pipeline for Transforming Research Concepts into Complete Scientific Narratives
+         Automated Pipeline for Transforming Research Concepts into Complete Scientific Narratives
       </h1>
     </td>
   </tr>
