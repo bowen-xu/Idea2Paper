@@ -1,9 +1,17 @@
-<h1 align="center">
-  <img src="assets/images/logo.png" alt="Idea2Paper Logo" width="140" style="vertical-align: middle; margin-right: 10px;">
-   Idea2Paper:<br>
-   <br>
+<table align="center">
+  <tr>
+    <td>
+      <img src="assets/images/logo.png" alt="Idea2Paper Logo" width="150">
+    </td>
+    <td style="vertical-align: middle; padding-left: 14px;">
+      <h1 style="margin: 0;">
+        Idea2Paper: <br>
    Automated Pipeline for Transforming Research Concepts into Complete Scientific Narratives
-</h1>
+      </h1>
+    </td>
+  </tr>
+</table>
+
 
 <p align="center">
   <a href="https://www.python.org/">
