@@ -89,6 +89,12 @@ Licensed under the **MIT License**.
 - **Inspiration**: Auditable, anchor-centered review processes.
 - **Community Support**: [agentAlpha Community](https://agentalpha.top)
 
+## 👥 Contributors
+
+<a href="https://github.com/czstudio/Idea2Paper/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=czstudio/Idea2Paper" />
+</a>
+
 ---
 
 ## 📈 Star History
