@@ -77,6 +77,9 @@ python Paper-KG-Pipeline/scripts/idea2story_pipeline.py "your idea"
 3. **配置**：
    - 复制 `.env.example` -> `.env`，填写 `SILICONFLOW_API_KEY` 等敏感键（不要提交）
    - 可选：复制 `i2p_config.example.json` -> `i2p_config.json` 调整阈值/anchors 等
+
+> **注意：** 当前 embedding 模型暂时固定为 `Qwen/Qwen3-Embedding-8B`（SiliconFlow），暂不支持切换。后续会扩展支持更多 embedding 模型/服务商。
+
 4. **运行**：
    ```bash
    python Paper-KG-Pipeline/scripts/idea2story_pipeline.py "你的研究Idea描述"

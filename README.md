@@ -90,6 +90,7 @@ reliable autonomous scientific discovery.*
 ```bash
 pip install -r Paper-KG-Pipeline/requirements.txt
 ```
+> **Note:** The embedding model is currently fixed to `Qwen/Qwen3-Embedding-8B` (SiliconFlow) and cannot be changed yet. We plan to expand this to support more embedding models/providers in future updates.
 
 ### Configuration
 
