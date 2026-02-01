@@ -41,7 +41,7 @@ Idea2Paper is an end-to-end research agent framework that aims to systematically
 To address these challenges in a principled and engineering-oriented manner, Idea2Paper adopts a modular system design. Instead of immediately building a fully end-to-end writing system, the project prioritizes the construction of targeted engineering submodules that tackle specific bottlenecks in the research pipeline. As the first and core engineering submodule, Idea2Story is introduced to directly address the problem of research paradigm generation. Idea2Story focuses on transforming underspecified research ideas into complete, coherent, and submission-ready scientific narrative skeletons. By providing a structured research story as an intermediate representation, Idea2Story establishes a stable foundation for downstream stages such as method development, experiment design, and paper writing.
 
  
-> **Idea2Paper** : [papers/Idea2paper.pdf](papers/Idea2paper.pdf)
+> **Idea2Paper** : https://www.researchgate.net/publication/400280248_Idea2Paper_What_Should_an_End-to-End_Research_Agent_Really_Do
 
 > **Idea2Story** : https://arxiv.org/abs/2601.20833
 
