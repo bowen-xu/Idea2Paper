@@ -20,6 +20,7 @@
   <br/>
 
   - [📄 Idea2Paper](#-idea2paper)
+  - [💬 User Community](#-user-community)
   - [✨ Key Features](#-key-features)
   - [📦 Outputs](#-outputs)
   - [🚀 Getting Started](#-getting-started)
@@ -39,21 +40,16 @@
 Idea2Paper is an end-to-end research agent framework that aims to systematically define and analyze the major stages of the contemporary research process, along with the core challenges inherent to each stage. Rather than treating paper writing as a monolithic generation problem, Idea2Paper explicitly decomposes scientific research into structured phases and identifies critical bottlenecks that hinder the transformation of raw ideas into coherent, submission-ready academic narratives. Through this analysis, Idea2Paper highlights that one of the most fundamental yet underexplored challenges lies in research paradigm generation—the process of converting an underspecified research idea into a logically consistent, academically grounded research story. Existing systems often struggle to produce stable and reusable research paradigms, especially when reasoning is performed entirely at runtime and under limited contextual grounding.
 
 To address these challenges in a principled and engineering-oriented manner, Idea2Paper adopts a modular system design. Instead of immediately building a fully end-to-end writing system, the project prioritizes the construction of targeted engineering submodules that tackle specific bottlenecks in the research pipeline. As the first and core engineering submodule, Idea2Story is introduced to directly address the problem of research paradigm generation. Idea2Story focuses on transforming underspecified research ideas into complete, coherent, and submission-ready scientific narrative skeletons. By providing a structured research story as an intermediate representation, Idea2Story establishes a stable foundation for downstream stages such as method development, experiment design, and paper writing.
-
  
 > **Idea2Paper** : https://www.researchgate.net/publication/400280248_Idea2Paper_What_Should_an_End-to-End_Research_Agent_Really_Do
 
-> **Idea2Story** : https://arxiv.org/abs/2601.20833
-
-
-
-
 ### Idea2Story (Core Submodule of Idea2Paper)
 
-*Idea2Story introduces a pre-computation–driven framework that shifts literature understanding
+Idea2Story introduces a pre-computation–driven framework that shifts literature understanding
 from runtime reasoning to offline knowledge graph construction, enabling more efficient and
-reliable autonomous scientific discovery.*
+reliable autonomous scientific discovery.
 
+> **Idea2Story** : https://arxiv.org/abs/2601.20833
 
 ### 🧠 Core Philosophy
 - **Knowledge-Driven**: Uses ICLR data to build a comprehensive knowledge graph.
@@ -65,6 +61,13 @@ reliable autonomous scientific discovery.*
 <br/>
 <em>Idea2Story pipeline architecture (a core module within Idea2Paper)</em>
 </div>
+
+## 💬 User Community
+
+| WeChat Group                                                                                | Discord Channel |
+|---------------------------------------------------------------------------------------------| --- |
+| <p align="center"> <img src="./assets/images/idea2paper_code.png" width="200" /><br/>  </p> | https://discord.gg/FfXtbREb |
+
 
 ## ✨ Key Features
 
@@ -146,17 +149,7 @@ output/
 ```
 Check `final_story.json` for the result and `pipeline_result.json` for the full process.
 
-### 📘 Need More Help? 
-See the [User Guide](./Paper-KG-Pipeline/README.md) e for advanced configuration, troubleshooting, and detailed usage examples.
 
-Got questions? You can contact us through any of the options listed below.
-  
-  Discord: https://discord.gg/FfXtbREb
-
-  <p align="center">
-  <img src="./assets/images/idea2paper_code.jpg" width="200" /><br/>
-  <sub>Scan the QR code with WeChat to communicate</sub>
-</p>
 ## 🤖 Anchored Multi‑Agent Review
 
 Instead of arbitrary scores, this project uses **anchored comparisons**. We select anchor papers with known scores, ask LLMs to compare your target against these anchors (better/tie/worse), and then deterministically fit a final numeric score. This ensures the review process is auditable and grounded in real-world data.
