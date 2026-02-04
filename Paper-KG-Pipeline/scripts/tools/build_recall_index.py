@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import List, Dict
 
 import numpy as np
+from tqdm import tqdm
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCRIPTS_DIR = SCRIPT_DIR.parent
@@ -146,7 +147,7 @@ def _build_index(kind: str, items: List[Dict], id_key: str, text_fn, index_dir: 
         processed += len(metas)
         return part_idx
 
-    for item in items:
+    for item in tqdm(items, desc=f"Processing {kind} items"):
         item_id = item.get(id_key)
         if not item_id or item_id in done_ids:
             continue
@@ -203,6 +204,7 @@ def build_recall_index(
     force_rebuild: bool,
     logger=None,
 ):
+    print("🔧 创建召回索引...")
     index_dir = Path(index_dir)
     index_dir.mkdir(parents=True, exist_ok=True)
 
@@ -230,6 +232,7 @@ def build_recall_index(
     idea_hash = _file_hash(nodes_idea_path)
     paper_hash = _file_hash(nodes_paper_path)
 
+    print("    🔴 创建 idea 召回索引...")
     idea_stats = _build_index(
         "idea",
         ideas,
@@ -242,6 +245,7 @@ def build_recall_index(
         sleep_sec,
         idea_hash
     )
+    print("    🔵 创建 paper 召回索引...")
     paper_stats = _build_index(
         "paper",
         papers,
