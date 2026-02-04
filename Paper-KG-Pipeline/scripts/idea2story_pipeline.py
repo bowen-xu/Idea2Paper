@@ -68,6 +68,7 @@ try:
     from pipeline.run_context import set_logger, reset_logger
     from tools.build_novelty_index import build_novelty_index
     from tools.build_recall_index import build_recall_index
+    from tools.html_report import generate_html_report
 except ImportError:
     # 如果直接运行脚本，尝试添加当前目录到 path
     import os
@@ -105,6 +106,7 @@ except ImportError:
     from pipeline.run_context import set_logger, reset_logger
     from tools.build_novelty_index import build_novelty_index
     from tools.build_recall_index import build_recall_index
+    from tools.html_report import generate_html_report
 
 
 def _log_event(logger, event_type: str, payload: dict):
@@ -410,6 +412,12 @@ def main():
                 if logger:
                     logger.log_event("results_bundle_failed", {"error": str(e)})
 
+        # 生成 HTML 报告
+        report_name = "report"
+        html_dir = generate_html_report(results_dir, report_name=report_name, final_story_path="./final_story.json", novelty_report_path="./novelty_report.json")
+        print(f"📊 可视化报告已生成: {html_dir}")
+        print(f"👉 提示: 请在结果目录运行 'python -m http.server 8000' 后访问 http://localhost:8000/{report_name}.html")
+        
     except Exception as e:
         print(f"\n❌ 错误: {e}")
         if logger:
