@@ -2,13 +2,13 @@ from pathlib import Path
 
 
 def generate_html_report(
-    OUTPUT_DIR: Path,
+    result_dir: Path,
     report_name: str = "report",
     final_story_path: str = "./final_story.json",
     novelty_report_path: str = "./novelty_report.json",
 ) -> Path:
-    if not isinstance(OUTPUT_DIR, Path):
-        OUTPUT_DIR = Path(OUTPUT_DIR)
+    if not isinstance(result_dir, Path):
+        result_dir = Path(result_dir)
     final_story_path = final_story_path or "./final_story.json"
     novelty_report_path = novelty_report_path or "./novelty_report.json"
     html_template = (
@@ -314,7 +314,7 @@ def generate_html_report(
 </body>
 </html>"""
     )
-    html_report_path = OUTPUT_DIR / f"{report_name}.html"
+    html_report_path = result_dir / f"{report_name}.html"
     with open(html_report_path, "w", encoding="utf-8") as f:
         f.write(html_template)
     return html_report_path
